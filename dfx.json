@@ -1,0 +1,26 @@
+{
+  "canisters": {
+    "doit_backend": {
+      "main": "src/doit_backend/main.mo",
+      "type": "motoko"
+    },
+    "doit_frontend": {
+      "dependencies": [
+        "doit_backend"
+      ],
+      "source": [
+        "src/doit_frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "doit_frontend"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
