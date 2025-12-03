@@ -1,19 +1,37 @@
 {
   "canisters": {
+    "internet_identity": {
+       "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+       "type": "custom",
+       "init_arg": "(opt record { new_flow_origins = opt vec { \"http://rdmx6-jaaaa-aaaaa-aaadq-cai.localhost:4943\" } })",
+       "specified_id": "rdmx6-jaaaa-aaaaa-aaadq-cai",
+       "remote": {
+         "id": {
+            "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+         }
+      },
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz"
+    }
+    },
+    "kotomo": {
+      "type": "custom",
+      "candid": "https://raw.githubusercontent.com/dfinity/ic/2e3589427cd9648d4edaebc1b96b5daf8fdd94d8/rs/rosetta-api/icrc1/ledger/ledger.did",
+      "wasm": "https://download.dfinity.systems/ic/2e3589427cd9648d4edaebc1b96b5daf8fdd94d8/canisters/ic-icrc1-ledger.wasm.gz"
+    },
     "doit_backend": {
       "main": "src/doit_backend/main.mo",
       "type": "motoko"
     },
-    "doit_frontend": {
-      "dependencies": [
-        "doit_backend"
-      ],
-      "source": [
-        "src/doit_frontend/dist"
-      ],
-      "type": "assets",
-      "workspace": "doit_frontend"
-    }
+
+  "doit_frontend": {
+    "dependencies": [
+      "doit_backend"
+    ],
+    "source": [
+      "src/doit_frontend/dist"
+    ],
+    "type": "assets",
+    "workspace": "doit_frontend"
   },
   "defaults": {
     "build": {

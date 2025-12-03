@@ -1,18 +1,24 @@
 {
   "engines": {
     "node": ">=16.0.0",
-    "npm": ">=7.0.0"
+    "pnpm": ">=7.0.0"
   },
   "name": "doit",
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "prebuild": "npm run prebuild --workspaces --if-present",
-    "pretest": "npm run prebuild --workspaces --if-present",
-    "start": "npm start --workspaces --if-present",
-    "test": "npm test --workspaces --if-present"
+    "build": "pnpm run build --filter \"*\" --if-present",
+    "prebuild": "pnpm run prebuild --filter \"*\" --if-present",
+    "pretest": "pnpm run prebuild --filter \"*\" --if-present",
+    "start": "pnpm start --filter \"*\" --if-present",
+    "test": "pnpm test --filter \"*\" --if-present",
+    "dev": "pnpm --filter doit_frontend start",
+    "setup": "pnpm --filter doit_frontend setup"
   },
   "type": "module",
   "workspaces": [
     "src/doit_frontend"
-  ]
+  ],
+  "dependencies": {
+    "framer-motion": "^12.23.13",
+    "lucide-react": "^0.544.0"
+  }
 }
