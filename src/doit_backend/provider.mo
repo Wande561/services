@@ -47,7 +47,6 @@ module ProviderModule {
           version = 1;
           id = callerId;
           name = registration.name;
-          email = registration.email;
           phone = registration.phone;
           idNumber = registration.idNumber;
           businessName = registration.businessName;
@@ -128,7 +127,6 @@ module ProviderModule {
           version = existingProfile.version + 1;
           id = existingProfile.id;
           name = existingProfile.name;
-          email = existingProfile.email;
           phone = Option.get(phone, existingProfile.phone);
           idNumber = existingProfile.idNumber;
           businessName = Option.get(businessName, existingProfile.businessName);
@@ -219,7 +217,6 @@ module ProviderModule {
               version = profile.version + 1;
               id = profile.id;
               name = profile.name;
-              email = profile.email;
               phone = profile.phone;
               idNumber = profile.idNumber;
               businessName = profile.businessName;
@@ -382,7 +379,6 @@ module ProviderModule {
           version = existingProfile.version + 1;
           id = existingProfile.id;
           name = existingProfile.name;
-          email = existingProfile.email;
           phone = existingProfile.phone;
           idNumber = existingProfile.idNumber;
           businessName = existingProfile.businessName;
@@ -446,7 +442,6 @@ module ProviderModule {
               version = profile.version + 1;
               id = profile.id;
               name = profile.name;
-              email = profile.email;
               phone = profile.phone;
               idNumber = profile.idNumber;
               businessName = profile.businessName;

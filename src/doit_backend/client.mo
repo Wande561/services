@@ -25,7 +25,6 @@ module ClientModule {
           version = 1;
           id = callerId;
           name = registration.name;
-          email = registration.email;
           phone = registration.phone;
           location = registration.location;
           profileImage = null;
@@ -79,7 +78,6 @@ module ClientModule {
           version = existingProfile.version + 1;
           id = existingProfile.id;
           name = Option.get(name, existingProfile.name);
-          email = existingProfile.email;
           phone = Option.get(phone, existingProfile.phone);
           location = Option.get(location, existingProfile.location);
           profileImage = switch(profileImage) {
@@ -150,7 +148,6 @@ module ClientModule {
           version = profile.version + 1;
           id = profile.id;
           name = profile.name;
-          email = profile.email;
           phone = profile.phone;
           location = profile.location;
           profileImage = profile.profileImage;

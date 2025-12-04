@@ -12,8 +12,120 @@ import Result "mo:base/Result";
 import Iter "mo:base/Iter";
 import Array "mo:base/Array";
 import Int "mo:base/Int";
+import Debug "mo:base/Debug";
+import Error "mo:base/Error";
+import Nat "mo:base/Nat";
 
 persistent actor DoItMain {
+
+  // ============================================================================
+  // COUNTERS
+  // ============================================================================
+
+  let kotomo_canister = actor("ufxgi-4p777-77774-qaadq-cai") : actor {
+    icrc1_transfer : ({
+      from_subaccount: ?[Nat8];
+      to: { owner: Principal; subaccount: ?[Nat8] };
+      amount: Nat;
+      fee: ?Nat;
+      memo: ?[Nat8];
+      created_at_time: ?Nat64;
+    }) -> async { #Ok: Nat; #Err: { 
+      #BadFee: { expected_fee: Nat };
+      #BadBurn: { min_burn_amount: Nat };
+      #InsufficientFunds: { balance: Nat };
+      #TooOld;
+      #CreatedInFuture: { ledger_time: Nat64 };
+      #Duplicate: { duplicate_of: Nat };
+      #TemporarilyUnavailable;
+      #GenericError: { error_code: Nat; message: Text };
+    } };
+    icrc1_balance_of : ({ owner: Principal; subaccount: ?[Nat8] }) -> async Nat;
+  };
+
+  let signUpReward : Nat = 1_000_000_000;
+  let messageReward : Nat = 500_000_000;
+  let messageThreshold : Nat = 10;
+
+  private transient var messageCounts = HashMap.HashMap<Principal, Nat>(10, Principal.equal, Principal.hash);
+  private var messageCountEntries : [(Principal, Nat)] = [];
+
+  private func transferReward(recipient: Principal, amount: Nat) : async Bool {
+    Debug.print("💰 Starting reward transfer to: " # Principal.toText(recipient) # " amount: " # Nat.toText(amount));
+
+    Debug.print("Skipping balance check - will rely on transfer result");
+    
+    let transferArgs = {
+      from_subaccount = null;
+      to = { owner = recipient; subaccount = null };
+      amount = amount;
+      fee = null;
+      memo = null;
+      created_at_time = null;
+    };
+    
+    Debug.print("� Transfer args: to_owner=" # Principal.toText(recipient) # ", amount=" # Nat.toText(amount));
+
+    try {
+      let result = await kotomo_canister.icrc1_transfer(transferArgs);
+      
+      switch (result) {
+        case (#Ok(blockIndex)) { 
+          Debug.print("✅ Transfer successful! Block index: " # Nat.toText(blockIndex));
+
+          Debug.print("Transfer completed - skipping balance verification");
+          
+          true 
+        };
+        case (#Err(error)) { 
+          Debug.print("❌ Transfer failed with error: " # debug_show(error));
+          false 
+        };
+      };
+    } catch (e) {
+      Debug.print("� Transfer threw exception: " # Error.message(e));
+      false;
+    };
+  };
+
+  private func rewardSignUp(user: Principal) : async () {
+    let userText = Principal.toText(user);
+    Debug.print("🎁 Attempting sign-up reward for user: " # userText);
+    Debug.print("🪙 Reward amount: " # Nat.toText(signUpReward));
+    
+    let success = await transferReward(user, signUpReward);
+    if (success) {
+      Debug.print("✅ Sign-up reward sent successfully!");
+    } else {
+      Debug.print("❌ Sign-up reward failed for user " # userText);
+    };
+  };
+
+  private func checkAndRewardMessages(user: Principal) : async () {
+    let userText = Principal.toText(user);
+    let currentCount = messageCounts.get(user);
+    switch (currentCount) {
+      case null { 
+        Debug.print("📝 First message from user: " # userText);
+        messageCounts.put(user, 1) 
+      };
+      case (?count) {
+        let newCount = count + 1;
+        messageCounts.put(user, newCount);
+        Debug.print("📊 Message count for " # userText # ": " # Nat.toText(newCount));
+
+        if (newCount % messageThreshold == 0) {
+          Debug.print("🎉 Message milestone reached! Rewarding user: " # userText);
+          let success = await transferReward(user, messageReward);
+          if (success) {
+            Debug.print("✅ Message reward sent successfully!");
+          } else {
+            Debug.print("❌ Message reward failed for user " # userText);
+          };
+        };
+      };
+    };
+  };
 
   // ============================================================================
   // SYSTEM INFORMATION
@@ -49,7 +161,6 @@ persistent actor DoItMain {
   private var servicesEntries : [(Text, Types.Service)] = [];
   private transient var services = HashMap.HashMap<Text, Types.Service>(10, Text.equal, Text.hash);
 
-  // Message state management
   private var conversationsEntries : [(Text, Types.Conversation)] = [];
   private var messagesEntries : [(Text, Types.Message)] = [];
   private var messageThreadsEntries : [(Text, Types.MessageThread)] = [];
@@ -99,6 +210,7 @@ persistent actor DoItMain {
     messageThreadsEntries := Iter.toArray(messageThreads.entries());
     messageDraftsEntries := Iter.toArray(messageDrafts.entries());
     blockedUsersEntries := Iter.toArray(blockedUsers.entries());
+    messageCountEntries := Iter.toArray(messageCounts.entries());
   };
 
   system func postupgrade() {
@@ -147,6 +259,9 @@ persistent actor DoItMain {
     blockedUsers := HashMap.fromIter<Principal, [Types.BlockedUser]>(
       blockedUsersEntries.vals(), blockedUsersEntries.size(), Principal.equal, Principal.hash
     );
+    messageCounts := HashMap.fromIter<Principal, Nat>(
+      messageCountEntries.vals(), messageCountEntries.size(), Principal.equal, Principal.hash
+    );
     
     clientProfilesEntries := [];
     clientBookingsEntries := [];
@@ -162,6 +277,7 @@ persistent actor DoItMain {
     messageThreadsEntries := [];
     messageDraftsEntries := [];
     blockedUsersEntries := [];
+    messageCountEntries := [];
   };  // ============================================================================
   // SYSTEM INFORMATION FUNCTIONS
   // ============================================================================
@@ -203,12 +319,21 @@ persistent actor DoItMain {
   public func registerClient(registration: Types.ClientRegistration) : async Result.Result<Types.ClientProfile, Text> {
     let callerId = Principal.fromActor(DoItMain);
     
-    Client.registerClient(
+    let result = Client.registerClient(
       callerId,
       registration,
       clientProfiles,
       clientNotifications
-    )
+    );
+    
+    // Reward user for signing up
+    switch (result) {
+      case (#ok(profile)) {
+        ignore rewardSignUp(callerId);
+        #ok(profile)
+      };
+      case (#err(error)) { #err(error) };
+    }
   };
 
   public query func getClientProfile() : async Result.Result<Types.ClientProfile, Text> {
@@ -300,6 +425,8 @@ persistent actor DoItMain {
     switch (result) {
       case (#ok(profile, newNextProviderId)) {
         nextProviderId := newNextProviderId;
+        // Reward user for signing up
+        ignore rewardSignUp(callerId);
         #ok(profile)
       };
       case (#err(error)) { #err(error) };
@@ -458,10 +585,8 @@ persistent actor DoItMain {
   // COMPREHENSIVE NOTIFICATIONS MANAGEMENT FUNCTIONS
   // ============================================================================
 
-  // Get all notifications for the current user
   public query func getAllNotifications() : async Result.Result<[Types.Notification], Text> {
     let callerId = Principal.fromActor(DoItMain);
-    // Combine both client and provider notifications
     let clientResult = Notifications.getNotifications(callerId, clientNotifications);
     let providerResult = Notifications.getNotifications(callerId, providerNotifications);
     
@@ -479,10 +604,8 @@ persistent actor DoItMain {
     }
   };
 
-  // Get unread notifications for the current user
   public query func getUnreadNotifications() : async Result.Result<[Types.Notification], Text> {
     let callerId = Principal.fromActor(DoItMain);
-    // Combine both client and provider unread notifications
     let clientResult = Notifications.getUnreadNotifications(callerId, clientNotifications);
     let providerResult = Notifications.getUnreadNotifications(callerId, providerNotifications);
     
@@ -500,22 +623,18 @@ persistent actor DoItMain {
     }
   };
 
-  // Mark a notification as read
   public func markNotificationAsRead(notificationId: Text) : async Result.Result<Bool, Text> {
     let callerId = Principal.fromActor(DoItMain);
-    
-    // Try to mark in client notifications first
+
     let clientResult = Notifications.markNotificationAsRead(callerId, notificationId, clientNotifications);
     switch (clientResult) {
       case (#ok(true)) { #ok(true) };
       case _ {
-        // If not found in client notifications, try provider notifications
         Notifications.markNotificationAsRead(callerId, notificationId, providerNotifications)
       };
     }
   };
 
-  // Mark all notifications as read
   public func markAllNotificationsAsRead() : async Result.Result<Bool, Text> {
     let callerId = Principal.fromActor(DoItMain);
     
@@ -529,22 +648,18 @@ persistent actor DoItMain {
     }
   };
 
-  // Delete a notification
   public func deleteNotification(notificationId: Text) : async Result.Result<Bool, Text> {
     let callerId = Principal.fromActor(DoItMain);
     
-    // Try to delete from client notifications first
     let clientResult = Notifications.deleteNotification(callerId, notificationId, clientNotifications);
     switch (clientResult) {
       case (#ok(true)) { #ok(true) };
       case _ {
-        // If not found in client notifications, try provider notifications
         Notifications.deleteNotification(callerId, notificationId, providerNotifications)
       };
     }
   };
 
-  // Delete all notifications
   public func deleteAllNotifications() : async Result.Result<Bool, Text> {
     let callerId = Principal.fromActor(DoItMain);
     
@@ -558,23 +673,19 @@ persistent actor DoItMain {
     }
   };
 
-  // Get notification by ID
   public query func getNotificationById(notificationId: Text) : async Result.Result<?Types.Notification, Text> {
     let callerId = Principal.fromActor(DoItMain);
-    
-    // Try to find in client notifications first
+
     let clientResult = Notifications.getNotificationById(callerId, notificationId, clientNotifications);
     switch (clientResult) {
       case (#ok(?notification)) { #ok(?notification) };
       case (#ok(null)) {
-        // If not found in client notifications, try provider notifications
         Notifications.getNotificationById(callerId, notificationId, providerNotifications)
       };
       case (#err(e)) { #err(e) };
     }
   };
 
-  // Get notification statistics
   public query func getNotificationStats() : async Result.Result<{
     totalNotifications: Nat;
     unreadNotifications: Nat;
@@ -795,7 +906,6 @@ persistent actor DoItMain {
           id = clientProfile.id;
           userType = #Client;
           name = clientProfile.name;
-          email = clientProfile.email;
           phone = clientProfile.phone;
           location = clientProfile.location;
           profileImage = clientProfile.profileImage;
@@ -819,7 +929,6 @@ persistent actor DoItMain {
               id = providerProfile.id;
               userType = #Provider;
               name = providerProfile.name;
-              email = providerProfile.email;
               phone = providerProfile.phone;
               location = providerProfile.location;
               profileImage = providerProfile.profileImage;
@@ -852,7 +961,6 @@ persistent actor DoItMain {
           id = clientProfile.id;
           userType = #Client;
           name = clientProfile.name;
-          email = clientProfile.email;
           phone = clientProfile.phone;
           location = clientProfile.location;
           profileImage = clientProfile.profileImage;
@@ -876,7 +984,6 @@ persistent actor DoItMain {
               id = providerProfile.id;
               userType = #Provider;
               name = providerProfile.name;
-              email = providerProfile.email;
               phone = providerProfile.phone;
               location = providerProfile.location;
               profileImage = providerProfile.profileImage;
@@ -1087,6 +1194,8 @@ persistent actor DoItMain {
     switch (result) {
       case (#ok(message, newNextMessageId)) {
         nextMessageId := newNextMessageId;
+        // Reward user for message milestones
+        ignore checkAndRewardMessages(callerId);
         #ok(message)
       };
       case (#err(error)) { #err(error) };

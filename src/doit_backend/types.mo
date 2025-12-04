@@ -231,11 +231,10 @@ module Types {
     version : Int;
     id : Principal;
     name : Text;
-    email : Text;
     phone : Text;
     location : Text;
     profileImage : ?Text;
-    createdAt : Time.Time;
+    createdAt : Int;
     isVerified : Bool;
     rating : Float;
     totalBookings : Int;
@@ -244,8 +243,6 @@ module Types {
   public type ClientRegistration = {
     version : Int;
     name : Text;
-    email : Text;
-    password : Text;
     phone : Text;
     location : Text;
     agreeToTerms : Bool;
@@ -257,7 +254,6 @@ module Types {
     version : Int;
     id : Principal;
     name : Text;
-    email : Text;
     phone : Text;
     idNumber : Text;
     businessName : Text;
@@ -282,8 +278,6 @@ module Types {
   public type ProviderRegistration = {
     version : Int;
     name : Text;
-    email : Text;
-    password : Text;
     phone : Text;
     idNumber : Text;
     businessName : Text;
@@ -483,7 +477,6 @@ module Types {
     id : Principal;
     userType : UserType;
     name : Text;
-    email : Text;
     phone : Text;
     location : Text;
     profileImage : ?Text;
