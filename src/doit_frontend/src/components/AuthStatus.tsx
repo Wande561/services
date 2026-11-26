@@ -42,7 +42,7 @@ const AuthStatus: React.FC = () => {
         </div>
         <div className="text-white">
           <div className="text-sm font-medium capitalize">{user.userType}</div>
-          <div className="text-xs text-gray-300">Internet Identity</div>
+          <div className="text-xs text-gray-300">Account</div>
         </div>
       </div>
       

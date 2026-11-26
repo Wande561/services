@@ -1,59 +1,39 @@
-# `doit`
+# ServiceConnect
 
-Welcome to your new `doit` project and to the Internet Computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
+The application uses React and TypeScript for the frontend, with a NestJS API and PostgreSQL accessed through Prisma.
 
-To get started, you might want to explore the project directory structure and the default configuration file. Working with this project in your development environment will not affect any production deployment or identity tokens.
+## Run locally
 
-To learn more before you start working with `doit`, see the following documentation available online:
+Install frontend dependencies with `pnpm install` at the repository root. Install API dependencies with `npm ci --prefix src/api`. Use Node.js 20 or newer and a running PostgreSQL database.
 
-- [Quick Start](https://internetcomputer.org/docs/current/developer-docs/setup/deploy-locally)
-- [SDK Developer Tools](https://internetcomputer.org/docs/current/developer-docs/setup/install)
-- [Motoko Programming Language Guide](https://internetcomputer.org/docs/current/motoko/main/motoko)
-- [Motoko Language Quick Reference](https://internetcomputer.org/docs/current/motoko/main/language-manual)
+Copy `src/api/.env.example` to `src/api/.env` and set `DATABASE_URL`. Run `npm run db:migrate` from the repository root, then start the API with `npm run dev:api`. In a second terminal, start the frontend with `npm run dev` and open `http://localhost:3000`.
 
-If you want to start working on your project right away, you might want to try the following commands:
+Email and password accounts are available. To enable Google sign-in, set the Google client ID and secret in `src/api/.env` and register `http://localhost:3001/auth/google/callback` as an authorized redirect URI. Adjust the frontend and API URLs in the environment for other deployments.
 
-```bash
-cd doit/
-dfx help
-dfx canister --help
-```
+After signing in, new and existing accounts without a profile can choose Client or Provider and complete their profile. Profiles are saved in PostgreSQL and users are sent to their dashboard. Each account has one role.
 
-## Running the project locally
+Providers can create, edit, publish, and unpublish listings from **Manage listings** on their dashboard. Visitors can search published services by keyword, category, and service area at `/services`. Providers can optionally add up to 20 work photos with example prices under **My work**; clients can open the portfolio from a published service.
 
-If you want to test your project locally, you can use the following commands:
+Clients can request a quote from a published listing, including a preferred date and time, location, description, and up to three photos. Providers respond under **Quotes** with itemized fees, a proposed appointment, duration, notes, and an expiry period. Clients can accept, decline, or request changes; revised quotations retain earlier versions. Quote activity appears in in-app notifications. When preparing a quotation, a provider can require a 25% deposit and must provide bank details in the quote. After the client accepts and pays by immediate EFT, the provider confirms receipt; only then is a booking created, if the time remains available. Without a deposit, acceptance creates a confirmed booking if the time is available. The application does not process or independently verify transfers. Existing bookings remain available under **Bookings**. Times use South African Standard Time (SAST).
 
-```bash
-# Starts the replica, running in the background
-dfx start --background
+Each booking has a private message thread. Both dashboards show unread messages and notifications for booking updates, messages, and reviews. Clients and providers each confirm that the service was completed; the booking is marked complete only after both confirmations. Each can then rate the other once per booking. Providers can see a client’s average rating on their quote requests, and account settings show each user’s rating. Published listings show provider reviews.
 
-# Deploys your canisters to the replica and generates your candid interface
-dfx deploy
-```
+Clients pay providers directly after service. Providers can record the amount and payment method on the completed booking. The provider dashboard distinguishes the full quoted value of completed services from payments recorded as received.
 
-Once the job completes, your application will be available at `http://localhost:4943?canisterId={asset_canister_id}`.
+The [legacy ICP migration guide](reference/README.md) describes dry-run validation and importing approved account mappings, listings, and booking history.
 
-If you have made changes to your backend canister, you can generate a new candid interface with
+## Provider verification
 
-```bash
-npm run generate
-```
+Clients and providers can request individual identity verification from Account settings; providers can also request registered business verification. A profile photograph is optional for clients and required for individual providers. Submissions remain pending until a verification administrator reviews the required evidence and independently checks the stated contact details. Clients see provider badges after approval, and providers see client badges on quote requests and bookings. Verification documents are stored in PostgreSQL and are accessible through authenticated administrator-only endpoints. Editing the verified account name, phone, or business name returns the account to Basic until it is reviewed again. Administrators cannot approve their own submissions. The app does not automatically verify phone or email ownership; reviewers must do that independently.
 
-at any time. This is recommended before starting the frontend development server, and will be run automatically any time you run `dfx deploy`.
+## Marketplace administration
 
-If you are making frontend changes, you can start a development server with
+Authorized administrators can open the admin centre to monitor marketplace counts and inspect paginated account, booking, quotation, and complaint lists. They can review identity and business verification submissions, update complaint status, and suspend or restore non-administrator accounts with an audit reason. Suspending an account revokes its sessions. Clients and providers can submit complaints from Complaints & support. The health panel reports whether the API and database are responding; it is not a full monitoring system.
 
-```bash
-npm start
-```
+## PostgreSQL
 
-Which will start a server at `http://localhost:8080`, proxying API requests to the replica at port 4943.
+The NestJS API reads `DATABASE_URL` from `src/api/.env`. Prisma migrations create the tables for accounts, profiles, sessions, listings, availability, bookings, messages, notifications, reviews, payment records, and legacy account mappings. Run `npm run db:status` to check the connection and migration status.
 
-### Note on frontend environment variables
+This workspace’s local database is `doit` on `127.0.0.1:55432`. Its data directory is `src/api/.postgres/data`. Use the existing `src/api/.env` to keep connecting to this database. On another installation, create a project database and set `DATABASE_URL` to its connection string before running `npm run db:migrate`.
 
-If you are hosting frontend code somewhere without using DFX, you may need to make one of the following adjustments to ensure your project does not fetch the root key in production:
-
-- set`DFX_NETWORK` to `ic` if you are using Webpack
-- use your own preferred method to replace `process.env.DFX_NETWORK` in the autogenerated declarations
-  - Setting `canisters -> {asset_canister_id} -> declarations -> env_override to a string` in `dfx.json` will replace `process.env.DFX_NETWORK` with the string in the autogenerated declarations
-- Write your own `createActor` constructor
+The app saves marketplace records as users work. A new database starts empty. Account settings support profile updates and password changes. Notification delivery preferences, privacy controls, profile photos, language and time zone settings are not yet available. Legacy ICP imports require a verified export.

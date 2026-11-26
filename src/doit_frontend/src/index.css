@@ -1,12 +1,39 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope-latin.woff2') format('woff2');
+  font-weight: 400 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('/fonts/instrument-serif-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('/fonts/instrument-serif-italic-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    @apply bg-home-canvas;
+  }
+
   body {
-    @apply bg-white text-gray-900 font-sans;
+    @apply bg-home-canvas text-gray-900 font-sans;
   }
 }
 
@@ -18,4 +45,87 @@
   .btn-secondary {
     @apply bg-black hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
   }
+
+  .btn-home {
+    @apply inline-flex items-center justify-center rounded-lg bg-home-accent px-4 py-2 text-sm font-semibold text-green-900 transition-colors hover:bg-home-accent-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-home-accent;
+  }
+
+  .home-link {
+    @apply rounded text-emerald-300 transition-colors hover:text-emerald-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-home-accent;
+  }
+}
+
+/* Carry the home page palette through the rest of the application. */
+.app-theme {
+  @apply min-h-screen bg-home-canvas font-home text-emerald-300;
+  color-scheme: dark;
+}
+
+.app-theme :is(h1, h2) {
+  @apply font-editorial font-normal text-home-text;
+}
+
+.app-theme :is(.bg-gray-900, .bg-black) {
+  background-color: #202d38;
+}
+
+.app-theme :is(.bg-gray-800, .bg-gray-800\/50, .bg-gray-800\/70, .bg-gray-800\/95, .bg-white\/10, .bg-white\/5) {
+  background-color: #293a46;
+}
+
+.app-theme :is(.bg-gray-700, .bg-gray-700\/50, .bg-gray-600\/40) {
+  background-color: #314551;
+}
+
+.app-theme :is(.bg-gradient-to-br, .bg-gradient-to-r) {
+  background-image: none;
+  background-color: #293a46;
+}
+
+.app-theme :is(.border-gray-600, .border-gray-700, .border-white\/10, .border-white\/20) {
+  border-color: #41545e;
+}
+
+.app-theme :is(.text-gray-200, .text-gray-300, .text-gray-400, .text-gray-500, .text-gray-600, .text-orange-200, .text-orange-300, .text-orange-400, .text-orange-500, .text-orange-600) {
+  color: #6ee7b7;
+}
+
+.app-theme :is(input, select, textarea) {
+  background-color: #202d38;
+  color: #fff;
+  border-color: #677c86;
+}
+
+.app-theme :is(input, textarea)::placeholder {
+  color: #a7c8ba;
+}
+
+.app-theme :is(.btn-primary, .btn-secondary, button.bg-orange-500, button.bg-orange-600, button.bg-orange-700) {
+  background-color: #fff;
+  color: #15803d;
+}
+
+.app-theme :is(.btn-primary, .btn-secondary, button.bg-orange-500, button.bg-orange-600, button.bg-orange-700):hover {
+  background-color: #f3f4f6;
+  color: #15803d;
+}
+
+.app-theme :is(.min-h-screen.bg-gradient-to-br, .min-h-screen.bg-gradient-to-r) {
+  background-color: #202d38;
+}
+
+.app-theme .bg-white.overflow-hidden {
+  background-color: #293a46;
+}
+
+.app-theme :is(.text-gray-900, .text-gray-800, .text-gray-700) {
+  color: #eef2f0;
+}
+
+.app-theme label {
+  color: #6ee7b7;
+}
+
+.app-theme :is(.bg-orange-500, .bg-orange-600, .bg-orange-700):not(button) {
+  background-color: #adc1b7;
 }

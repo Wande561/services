@@ -13,7 +13,7 @@ export const SystemStatus: React.FC = () => {
     supportedCategories,
     connectToBackend,
     disconnect,
-    loginWithII,
+    openSignIn,
     logout,
     refreshSystemInfo,
     clearError,
@@ -135,13 +135,13 @@ export const SystemStatus: React.FC = () => {
           {!user.isAuthenticated ? (
             <div className="space-x-2">
               <button
-                onClick={() => loginWithII()}
+                onClick={() => openSignIn()}
                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
               >
                 Login as Client
               </button>
               <button
-                onClick={() => loginWithII()}
+                onClick={() => openSignIn()}
                 className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
               >
                 Login as Provider

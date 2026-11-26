@@ -1,0 +1,77 @@
+<style>
+  #serviceconnect-color-palettes .palette {
+    min-width: 0;
+    display: grid;
+    gap: calc(var(--font-size-base) * .65);
+  }
+  #serviceconnect-color-palettes .samples {
+    display: grid;
+    grid-template-columns: 4fr 3fr 2fr 1fr;
+    block-size: calc(var(--font-size-base) * 3);
+    overflow: hidden;
+    border-radius: .4rem;
+  }
+  #serviceconnect-color-palettes .samples span {
+    background: var(--sample);
+  }
+  #serviceconnect-color-palettes dl {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: calc(var(--font-size-base) * .25) calc(var(--font-size-base) * .5);
+    margin: 0;
+    color: var(--foreground);
+  }
+  #serviceconnect-color-palettes dt {
+    color: var(--muted-foreground);
+  }
+  #serviceconnect-color-palettes dd {
+    margin: 0;
+  }
+</style>
+<div id="serviceconnect-color-palettes" class="viz-grid" aria-label="ServiceConnect color palettes">
+  <section class="palette" aria-labelledby="sc-graphite">
+    <h3 id="sc-graphite">Graphite &amp; Brass</h3>
+    <div class="samples" aria-hidden="true">
+      <span style="--sample:#151413"></span>
+      <span style="--sample:#22201E"></span>
+      <span style="--sample:#B99B68"></span>
+      <span style="--sample:#F1EBE1"></span>
+    </div>
+    <dl>
+      <dt>Background</dt><dd><code>#151413</code></dd>
+      <dt>Surface</dt><dd><code>#22201E</code></dd>
+      <dt>Accent</dt><dd><code>#B99B68</code></dd>
+      <dt>Text</dt><dd><code>#F1EBE1</code></dd>
+    </dl>
+  </section>
+  <section class="palette" aria-labelledby="sc-ink">
+    <h3 id="sc-ink">Ink &amp; Slate Blue</h3>
+    <div class="samples" aria-hidden="true">
+      <span style="--sample:#121720"></span>
+      <span style="--sample:#1D2633"></span>
+      <span style="--sample:#8DA5C3"></span>
+      <span style="--sample:#E7EDF4"></span>
+    </div>
+    <dl>
+      <dt>Background</dt><dd><code>#121720</code></dd>
+      <dt>Surface</dt><dd><code>#1D2633</code></dd>
+      <dt>Accent</dt><dd><code>#8DA5C3</code></dd>
+      <dt>Text</dt><dd><code>#E7EDF4</code></dd>
+    </dl>
+  </section>
+  <section class="palette" aria-labelledby="sc-sage">
+    <h3 id="sc-sage">Charcoal &amp; Sage</h3>
+    <div class="samples" aria-hidden="true">
+      <span style="--sample:#141917"></span>
+      <span style="--sample:#202824"></span>
+      <span style="--sample:#90A58F"></span>
+      <span style="--sample:#E8EEE7"></span>
+    </div>
+    <dl>
+      <dt>Background</dt><dd><code>#141917</code></dd>
+      <dt>Surface</dt><dd><code>#202824</code></dd>
+      <dt>Accent</dt><dd><code>#90A58F</code></dd>
+      <dt>Text</dt><dd><code>#E8EEE7</code></dd>
+    </dl>
+  </section>
+</div>

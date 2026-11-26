@@ -13,7 +13,7 @@ const Navbar = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user.isAuthenticated && user.principal) {
+    if (user.isAuthenticated && user.id) {
       const checkUnreadData = () => {
         // Backend-only data checking
         // TODO: Replace with actual backend calls for unread messages/notifications
@@ -31,9 +31,9 @@ const Navbar = () => {
       setHasUnreadMessages(false);
       setHasUnreadNotifications(false);
     }
-  }, [user.isAuthenticated, user.principal]);
+  }, [user.isAuthenticated, user.id]);
   const createTestNotifications = () => {
-    if (user.principal) {
+    if (user.id) {
       const testNotifications = [
         {
           id: Date.now(),
@@ -70,7 +70,7 @@ const Navbar = () => {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [user.isAuthenticated, user.principal]);
+  }, [user.isAuthenticated, user.id]);
 
   const navItems = [
     { name: 'Home', href: getHomeRoute() },

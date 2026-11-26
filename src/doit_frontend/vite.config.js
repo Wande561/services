@@ -1,45 +1,11 @@
-import { fileURLToPath, URL } from 'url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import environment from 'vite-plugin-environment';
-import dotenv from 'dotenv';
-
-dotenv.config({ path: '../../.env' });
 
 export default defineConfig({
-  build: {
-    emptyOutDir: true,
-  },
-  optimizeDeps: {
-    esbuildOptions: {
-      define: {
-        global: "globalThis",
-      },
-    },
-  },
+  plugins: [react()],
   server: {
-    proxy: {
-      "/api": {
-        target: "http://localhost:4943",
-        changeOrigin: true,
-        secure: false,
-      },
-    },
-  },
-  plugins: [
-    react(),
-    environment("all", { prefix: "CANISTER_" }),
-    environment("all", { prefix: "DFX_" }),
-  ],
-  resolve: {
-    alias: [
-      {
-        find: "declarations",
-        replacement: fileURLToPath(
-          new URL("../declarations", import.meta.url)
-        ),
-      },
-    ],
-    dedupe: ['@dfinity/agent'],
+    port: 3000,
+    strictPort: true,
+    proxy: { '/api': { target: 'http://localhost:3001', rewrite: path => path.replace(/^\/api/, '') } },
   },
 });

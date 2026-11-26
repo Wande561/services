@@ -1,4 +1,6 @@
-import type { ServiceCategory } from '../../../declarations/doit_backend/doit_backend.did';
+import type { ServiceCategoryEnum } from '../types';
+
+type ServiceCategory = Record<string, null>;
 
 // Helper function to convert backend ServiceCategory to string
 export const serviceCategoryToString = (category: ServiceCategory): string => {
@@ -14,18 +16,20 @@ export const serviceCategoryToString = (category: ServiceCategory): string => {
   return 'Unknown';
 };
 
+export const categoryLabel = (category: ServiceCategoryEnum) => serviceCategoryToString({ [category]: null });
+
 // Helper function to convert string to backend ServiceCategory type
 export const stringToServiceCategory = (categoryStr: string): ServiceCategory => {
   switch (categoryStr.toLowerCase().replace(/\s+/g, '')) {
     case 'plumbing': return { 'Plumbing': null };
-    case 'hairstyling': case 'hairstyling': return { 'HairStyling': null };
-    case 'housecleaning': case 'housecleaning': return { 'HouseCleaning': null };
+    case 'hairstyling': return { 'HairStyling': null };
+    case 'housecleaning': return { 'HouseCleaning': null };
     case 'electrical': return { 'Electrical': null };
     case 'gardening': return { 'Gardening': null };
-    case 'petgrooming': case 'petgrooming': return { 'PetGrooming': null };
+    case 'petgrooming': return { 'PetGrooming': null };
     case 'tutoring': return { 'Tutoring': null };
     case 'construction': return { 'Construction': null };
-    case 'personaltraining': case 'personaltraining': return { 'PersonalTraining': null };
+    case 'personaltraining': return { 'PersonalTraining': null };
     default: return { 'Plumbing': null };
   }
 };

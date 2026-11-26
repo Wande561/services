@@ -1,0 +1,14 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { FormEvent } from 'react';
+import { useAuth } from '../contexts/AppContext';
+import { apiRequest } from '../utils/apiRequest';
+import { quoteTime } from '../utils/quotes';
+interface Complaint { id: string; subject: string; description: string; status: string; createdAt: string }
+const field = 'mt-1 w-full rounded-lg border border-home-control bg-home-canvas p-3 text-white';
+export default function Complaints() {
+  const { currentUser } = useAuth(); const cache = useQueryClient();
+  const list = useQuery({ queryKey: ['my-complaints', currentUser?.id], queryFn: () => apiRequest<Complaint[]>('/complaints'), enabled: !!currentUser, retry: false });
+  const send = useMutation({ mutationFn: (data: object) => apiRequest('/complaints', { method: 'POST', data }), onSuccess: () => cache.invalidateQueries({ queryKey: ['my-complaints'] }) });
+  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = event.currentTarget; const data = new FormData(form); try { await send.mutateAsync({ subject: data.get('subject'), description: data.get('description') }); form.reset(); } catch { /* Error is shown below. */ } }
+  return <main className="min-h-screen px-5 py-12"><div className="mx-auto max-w-3xl"><div className="workspace-heading"><p>WE ARE HERE TO HELP / SUPPORT</p><h1>Complaints and support</h1><span>Tell the marketplace administrators what happened.</span></div><form onSubmit={submit} className="mt-6 space-y-4 rounded-xl border border-home-line bg-home-surface p-6"><label className="block">Subject<input className={field} name="subject" maxLength={120} required /></label><label className="block">Details<textarea className={field} name="description" rows={5} maxLength={3000} required /></label>{send.isError && <p role="alert" className="text-red-300">{send.error.message}</p>}{send.isSuccess && <p role="status" className="text-emerald-300">Your complaint was submitted.</p>}<button className="btn-primary disabled:opacity-50" disabled={send.isPending}>Submit complaint</button></form><h2 className="mt-8 text-3xl">Your complaints</h2>{list.isPending && <p className="mt-3">Loading…</p>}{list.isError && <p role="alert" className="mt-3 text-red-300">{list.error.message}</p>}{list.data?.length === 0 && <p className="mt-3 text-emerald-300">No complaints submitted.</p>}<ul className="mt-4 space-y-3">{list.data?.map(item => <li key={item.id} className="rounded-xl border border-home-line bg-home-surface p-5"><div className="flex justify-between gap-3"><p className="font-semibold text-home-text">{item.subject}</p><span className="text-sm text-emerald-300">{item.status === 'InReview' ? 'In review' : item.status}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-emerald-300">{item.description}</p><p className="mt-2 text-xs text-emerald-300/70">{quoteTime(item.createdAt)}</p></li>)}</ul></div></main>;
+}

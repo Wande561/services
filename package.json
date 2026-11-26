@@ -5,13 +5,11 @@
   },
   "name": "doit",
   "scripts": {
-    "build": "pnpm run build --filter \"*\" --if-present",
-    "prebuild": "pnpm run prebuild --filter \"*\" --if-present",
-    "pretest": "pnpm run prebuild --filter \"*\" --if-present",
-    "start": "pnpm start --filter \"*\" --if-present",
-    "test": "pnpm test --filter \"*\" --if-present",
-    "dev": "pnpm --filter doit_frontend start",
-    "setup": "pnpm --filter doit_frontend setup"
+    "dev": "npm run start --prefix src/doit_frontend",
+    "dev:api": "npm run start:dev --prefix src/api",
+    "build": "npm run build --prefix src/api && npm run build --prefix src/doit_frontend",
+    "db:migrate": "npm run db:migrate --prefix src/api",
+    "db:status": "npm run db:status --prefix src/api"
   },
   "type": "module",
   "workspaces": [

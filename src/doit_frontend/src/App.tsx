@@ -1,79 +1,102 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AppProvider, AuthProvider, useApp } from './contexts/AppContext';
-import Navbar from './components/Navbar';
-import AuthDebug from './components/AuthDebug';
+import { AuthProvider, useAuth } from './contexts/AppContext';
 import Home from './pages/Home';
+import SiteNavbar from './components/SiteNavbar';
 import SignIn from './pages/SignIn';
+import Onboarding from './pages/Onboarding';
 import Services from './pages/Services';
-import BookNow from './pages/BookNow';
+import ListingDetail from './pages/ListingDetail';
+import QuoteRequest from './pages/QuoteRequest';
+import Quotes from './pages/Quotes';
+import Bookings from './pages/Bookings';
+import WorkingHours from './pages/WorkingHours';
+import ProviderProfile from './pages/ProviderProfile';
 import About from './pages/About';
 import Notifications from './pages/Notifications';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import ProviderDashboard from './pages/ProviderDashboard';
+import ManageListings from './pages/ManageListings';
+import ListingReviews from './pages/ListingReviews';
 import Dashboard from './pages/Dashboard';
-import ProviderLogin from './pages/ProviderLogin';
-import ClientLogin from './pages/ClientLogin';
+import VerificationReview from './pages/VerificationReview';
+import AdminDashboard from './pages/AdminDashboard';
+import Complaints from './pages/Complaints';
+import Reliability from './pages/Reliability';
+import ReliabilityReview from './pages/ReliabilityReview';
+import type { AccountRole } from './types';
+import { accountDestination, accountHome } from './utils/accountRoutes';
 
-// const AuthNavigationHandler = () => {
-//   const { user } = useApp();
-//   const navigate = useNavigate();
-//   const location = useLocation();
-
-//   useEffect(() => {
-//     // Define public pages that anyone can access without a profile
-//     const publicPages = ['/', '/about', '/services'];
-    
-//     // Define auth pages where users can create profiles
-//     const authPages = ['/signin', '/client-login', '/provider-login'];
-    
-//     // Define protected pages that require a complete profile
-//     const protectedPages = ['/dashboard', '/provider-dashboard', '/settings', '/notifications', '/messages', '/book'];
-
-//     if (user.isAuthenticated && user.principal && user.userType === null) {
-
-//       if (protectedPages.includes(location.pathname)) {
-//         console.log('User authenticated but no profile found - redirecting from protected page to signin');
-//         navigate('/signin');
-//       }
-//     } else if (user.isAuthenticated && user.userType) {
-//       if (authPages.includes(location.pathname)) {
-//         console.log(`User with ${user.userType} profile found on auth page - redirecting to dashboard`);
-//         if (user.userType === 'provider') {
-//           navigate('/provider-dashboard');
-//         } else if (user.userType === 'client') {
-//           navigate('/dashboard');
-//         }
-//       }
-//     }
-//   }, [user.isAuthenticated, user.userType, user.principal, navigate, location.pathname]);
-
-//   return null;
-// };
 const queryClient = new QueryClient();
 
-const App = () => {
+function RequireProfile({ role }: { role?: AccountRole }) {
+  const { currentUser, isLoading } = useAuth();
+  const location = useLocation();
+  if (isLoading) {
+    return <p role="status" className="bg-gray-900 min-h-screen p-8 text-white">Loading your account…</p>;
+  }
+  const listingId = location.pathname === '/book' ? new URLSearchParams(location.search).get('service') : null;
+  const params = new URLSearchParams();
+  if (listingId) { params.set('book', listingId); const photo = new URLSearchParams(location.search).get('photo'); if (photo) params.set('photo', photo); }
+  if (!currentUser) return <Navigate to={params.size ? `/signin?${params}` : '/signin'} replace />;
+  if (currentUser.profile?.role === 'admin' && !location.pathname.startsWith('/admin') && !['/verification-review', '/settings'].includes(location.pathname)) return <Navigate to="/admin" replace />;
+  if (!currentUser.profile) return <Navigate to={accountDestination(undefined, params)} replace />;
+  if (role && currentUser.profile.role !== role) {
+    return <Navigate to={accountHome(currentUser.profile.role)} replace />;
+  }
+  return <Outlet />;
+}
+
+function AppRoutes() {
+  const { pathname } = useLocation();
+  const page = pathname === '/' ? 'home' : pathname === '/provider-dashboard/hours' ? 'hours' : pathname === '/settings' ? 'settings' : pathname.split('/').filter(Boolean)[0] || 'home';
+  return <div className={pathname === '/' ? undefined : 'app-theme'}><SiteNavbar /><div className="page-stage min-w-0 md:pl-64" data-page={page}><Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/signin" element={<SignIn />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/services" element={<Services />} />
+            <Route path="/services/:listingId" element={<ListingDetail />} />
+            <Route path="/providers/:providerId" element={<ProviderProfile />} />
+            <Route path="/providers/:providerId/work" element={<ProviderProfile />} />
+            <Route path="/services/:listingId/reviews" element={<ListingReviews />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/provider-login" element={<Navigate to="/signin?role=provider" replace />} />
+            <Route path="/client-login" element={<Navigate to="/signin?role=client" replace />} />
+            <Route element={<RequireProfile />}>
+              <Route path="/bookings" element={<Bookings />} />
+              <Route path="/quotes" element={<Quotes />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/complaints" element={<Complaints />} />
+              <Route path="/reliability" element={<Reliability />} />
+              <Route path="/admin/reliability" element={<ReliabilityReview />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/verification-review" element={<VerificationReview />} />
+            </Route>
+            <Route element={<RequireProfile role="client" />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/book" element={<QuoteRequest />} />
+            </Route>
+            <Route element={<RequireProfile role="provider" />}>
+              <Route path="/provider-dashboard" element={<ProviderDashboard />} />
+              <Route path="/provider-dashboard/listings" element={<ManageListings />} />
+              <Route path="/provider-dashboard/work" element={<Navigate to="/provider-dashboard" replace />} />
+              <Route path="/provider-dashboard/hours" element={<WorkingHours />} />
+              <Route path="/provider-dashboard/availability" element={<Navigate to="/provider-dashboard/hours" replace />} />
+            </Route>
+          </Routes></div></div>;
+}
+
+export default function App() {
   return (
-   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/services" element={<Services />} />
-          <Route path="/book" element={<BookNow />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/messages" element={<Messages />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/provider-dashboard" element={<ProviderDashboard />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/provider-login" element={<ProviderLogin />} />
-          <Route path="/client-login" element={<ClientLogin />} />
-        </Routes>
-      </BrowserRouter>  
-    </AuthProvider>
-  </QueryClientProvider>
-};
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}
