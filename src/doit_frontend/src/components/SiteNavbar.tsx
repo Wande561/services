@@ -20,6 +20,12 @@ export default function SiteNavbar() {
   const { data: reliability } = useQuery(reliabilityUnread(role ? currentUser!.id : ''));
   useEffect(() => { setOpen(false); }, [pathname]);
   useEffect(() => { if (!open) return; const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); }; document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key); }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [open]);
   const adminMode = !!currentUser?.isVerificationAdmin && (profileRole === 'admin' || pathname.startsWith('/admin') || pathname.startsWith('/verification-review'));
   const links: { to: string; label: string; icon: typeof Home; end?: boolean; count?: number }[] = adminMode ? [
     { to: '/admin', label: 'Control centre', icon: LayoutDashboard, end: true },
@@ -57,7 +63,7 @@ export default function SiteNavbar() {
   </div>;
   return <>
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-home-line md:block">{panel}</aside>
-    <div className="flex h-16 items-center justify-between border-b border-home-line bg-home-canvas px-5 md:hidden"><Link to={adminMode ? '/admin' : role ? accountHome(role) : '/'} className="font-semibold text-home-text">ServiceConnect</Link><button type="button" onClick={() => setOpen(true)} aria-label="Open navigation" aria-expanded={open} aria-controls="mobile-navigation" className={`rounded-lg p-2 text-emerald-300 ${focus}`}><Menu aria-hidden="true" /></button></div>
+    <div className="mobile-site-header flex h-16 items-center justify-between border-b border-home-line bg-home-canvas px-5 md:hidden"><Link to={adminMode ? '/admin' : role ? accountHome(role) : '/'} className="font-semibold text-home-text">ServiceConnect</Link><button type="button" onClick={() => setOpen(true)} aria-label="Open navigation" aria-expanded={open} aria-controls="mobile-navigation" className={`rounded-lg p-2 text-emerald-300 ${focus}`}><Menu aria-hidden="true" /></button></div>
     {open && <div className="fixed inset-0 z-50 md:hidden"><button type="button" aria-label="Close navigation" className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} /><aside id="mobile-navigation" className="absolute inset-y-0 left-0 w-[min(18rem,85vw)] shadow-2xl">{panel}<button type="button" aria-label="Close navigation" onClick={() => setOpen(false)} className={`absolute right-3 top-5 rounded-lg p-2 text-emerald-300 ${focus}`}><X aria-hidden="true" className="h-5 w-5" /></button></aside></div>}
   </>;
 }

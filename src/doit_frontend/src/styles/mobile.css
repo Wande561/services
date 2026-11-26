@@ -1,0 +1,263 @@
+/* Shared small-screen layout and touch sizing. Keep page-specific styles above this layer. */
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100%;
+}
+
+body {
+  overflow-x: clip;
+}
+
+.page-stage,
+.app-theme,
+.page-stage main,
+.page-stage main > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.page-stage {
+  min-height: 100dvh;
+}
+
+.page-stage img,
+.page-stage video,
+.page-stage canvas,
+.page-stage svg {
+  max-width: 100%;
+}
+
+.page-stage :where(input, select, textarea) {
+  max-width: 100%;
+}
+
+.page-stage :where(button) {
+  touch-action: manipulation;
+}
+
+.page-stage :where(p, h1, h2, h3, li, a, label, span, strong, small) {
+  overflow-wrap: anywhere;
+}
+
+.page-stage :where(table) {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.page-stage :where(th, td) {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767px) {
+  .page-stage main {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  .page-stage main.discovery-page,
+  .page-stage main.auth-page,
+  .page-stage main.request-page,
+  .page-stage main.account-page {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  .page-stage main :where(h1) {
+    font-size: clamp(2rem, 9vw, 3.25rem) !important;
+    line-height: 1.04 !important;
+    overflow-wrap: break-word;
+  }
+
+  .page-stage main :where(h2) {
+    font-size: clamp(1.4rem, 6vw, 2rem);
+    line-height: 1.12;
+    overflow-wrap: break-word;
+  }
+
+  .page-stage main :where(button, input:not([type='checkbox']):not([type='radio']), select) {
+    min-height: 44px;
+  }
+
+  .page-stage main :where(input, select, textarea) {
+    font-size: max(16px, 1em);
+  }
+
+  .page-stage main :where(textarea) {
+    min-height: 100px;
+    resize: vertical;
+  }
+
+  .page-stage main :where(button, a) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .page-stage[data-page='admin'] main nav[aria-label='Admin sections'] {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .page-stage[data-page='admin'] main nav[aria-label='Admin sections'] button {
+    flex: 1 1 120px;
+  }
+
+  .page-stage[data-page='admin'] main :where(ul, ol) {
+    min-width: 0;
+  }
+
+  .page-stage main :where(.workspace-heading) {
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+  }
+
+  .page-stage main :where(.workspace-heading > span) {
+    display: block;
+    line-height: 1.6;
+  }
+
+  .page-stage main :where(.hours-day__times) {
+    width: 100%;
+  }
+
+  .page-stage main :where(.hours-day__times label) {
+    flex: 1 1 0;
+  }
+
+  .page-stage main :where(.hours-day__times input) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .page-stage main :where(.account-actions, .hours-savebar) {
+    align-items: stretch;
+  }
+
+  .page-stage main :where(.account-actions > button, .hours-savebar > button) {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .page-stage main :where(.account-card__head h2, .hours-section-head h2) {
+    font-size: clamp(1.5rem, 7vw, 2rem) !important;
+  }
+
+  .page-stage main :where(.account-card, .hours-main, .request-form) {
+    padding: 20px 16px;
+  }
+
+  .page-stage main :where(.account-page, .discovery-page, .auth-page, .request-page) {
+    padding-top: 24px;
+    padding-bottom: max(48px, env(safe-area-inset-bottom));
+  }
+
+  .page-stage main :where(.home-hero) {
+    gap: 24px;
+  }
+
+  .page-stage main :where(.home-hero__search) {
+    min-width: 0;
+  }
+
+  .page-stage main :where(.listing-card__body) {
+    padding: 16px;
+  }
+
+  .page-stage main :where(.discovery-results__head) {
+    flex-wrap: wrap;
+  }
+
+  .page-stage main :where(.discovery-results__head > div:last-child) {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .page-stage main :where(.discovery-results__grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-stage :where(table) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-site-header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    min-height: 64px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .mobile-site-header button,
+  #mobile-navigation > button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 420px) {
+  .page-stage main {
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+
+  .page-stage main.discovery-page,
+  .page-stage main.auth-page,
+  .page-stage main.request-page,
+  .page-stage main.account-page {
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+
+  .page-stage main :where(.home-hero__search) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-stage main :where(.home-hero__note) {
+    right: 18px;
+    bottom: 18px;
+    left: 18px;
+  }
+
+  .page-stage main :where(.home-hero__seal) {
+    top: 18px;
+    right: 18px;
+  }
+
+  .page-stage main :where(.home-hero__search button) {
+    justify-content: center;
+  }
+
+  .page-stage main :where(.hours-day) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 11px;
+  }
+
+  .page-stage main :where(.hours-day__times) {
+    gap: 6px;
+    padding-left: 0;
+  }
+
+  .page-stage main :where(.hours-day__times input) {
+    padding: 7px 5px;
+  }
+
+  .page-stage main :where(.auth-story) {
+    padding: 22px 18px;
+  }
+
+  .page-stage main :where(.auth-card) {
+    padding: 24px 18px;
+  }
+
+  .page-stage main :where(.auth-card h2) {
+    font-size: clamp(1.65rem, 8vw, 2.3rem) !important;
+  }
+}
