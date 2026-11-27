@@ -64,6 +64,53 @@ export class QuotesService {
     return role === 'provider' ? this.withClientRatings(requests) : requests;
   }
 
+  /** Read-only quote summaries; providerId is always included in every query. */
+  async assistantSummary(providerId: string, now = new Date(), horizon = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)) {
+    const [statusGroups, attentionRows, recentRequests, alerts] = await Promise.all([
+      this.db.quoteRequest.groupBy({ by: ['status'], where: { providerId }, _count: { _all: true } }),
+      this.db.quoteRequest.findMany({
+        where: { providerId, OR: [
+          { status: { in: ['Pending', 'RevisionRequested', 'DepositPending', 'SlotUnavailable'] } },
+          { status: 'Quoted', versions: { some: { expiresAt: { lte: horizon } } } },
+        ] },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: 30,
+        select: { id: true, status: true, description: true, preferredAt: true, additionalInfo: true, changeRequest: true, createdAt: true, updatedAt: true, listing: { select: { title: true } }, versions: { orderBy: [{ version: 'desc' }], take: 1, select: { version: true, serviceDescription: true, durationMinutes: true, appointmentAt: true, expiresAt: true, notes: true, depositRequired: true } } },
+      }),
+      this.db.quoteRequest.findMany({
+        where: { providerId }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: 6,
+        select: { id: true, status: true, description: true, preferredAt: true, additionalInfo: true, changeRequest: true, createdAt: true, updatedAt: true, listing: { select: { title: true } }, versions: { orderBy: [{ version: 'desc' }], take: 1, select: { version: true, serviceDescription: true, durationMinutes: true, appointmentAt: true, expiresAt: true, notes: true, depositRequired: true } } },
+      }),
+      this.db.quoteAlert.findMany({
+        where: { recipientId: providerId, request: { providerId } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 10,
+        select: { id: true, requestId: true, message: true, createdAt: true, readAt: true, request: { select: { status: true, listing: { select: { title: true } } } } },
+      }),
+    ]);
+    const summarize = (row: typeof attentionRows[number]) => {
+      const version = row.versions[0];
+      const isExpired = row.status === 'Quoted' && !!version && version.expiresAt <= now;
+      return {
+        id: row.id, status: row.status, service: row.listing.title,
+        description: row.description.slice(0, 1000), preferredAt: row.preferredAt,
+        additionalInfo: row.additionalInfo?.slice(0, 500) ?? null,
+        changeRequest: row.changeRequest?.slice(0, 500) ?? null,
+        createdAt: row.createdAt, updatedAt: row.updatedAt,
+        latestQuote: version ? {
+          version: version.version, serviceDescription: version.serviceDescription.slice(0, 700),
+          durationMinutes: version.durationMinutes, appointmentAt: version.appointmentAt,
+          expiresAt: version.expiresAt, notes: version.notes?.slice(0, 400) ?? null,
+          depositRequired: version.depositRequired,
+          expiryState: isExpired ? 'expired_by_timestamp' : row.status === 'Quoted' ? 'currently_quoted' : 'not_applicable',
+        } : null,
+      };
+    };
+    const attention = attentionRows.filter(row => row.status !== 'Quoted' || (row.versions[0] && row.versions[0].expiresAt <= horizon)).slice(0, 10).map(summarize);
+    return {
+      statusCounts: Object.fromEntries(statusGroups.map(row => [row.status, row._count._all])),
+      attention,
+      recentRequests: recentRequests.map(summarize),
+      alerts: alerts.map(alert => ({ id: alert.id, requestId: alert.requestId, message: alert.message.slice(0, 300), createdAt: alert.createdAt, unread: alert.readAt === null, status: alert.request.status, service: alert.request.listing.title })),
+    };
+  }
   async get(id: string, role: AccountRole, requestId: string) {
     const result = await this.db.quoteRequest.findFirst({ where: { id: requestId, ...(role === 'client' ? { clientId: id } : { providerId: id }) }, select: selection });
     if (!result) throw new NotFoundException('Quote request not found');

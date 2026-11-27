@@ -4,8 +4,10 @@ import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { json } from 'express';
 import { AppModule } from './app.module';
+import { assertSecureFrontendOrigin } from './production-config';
 
 async function bootstrap() {
+  assertSecureFrontendOrigin();
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   // Listing edits can include up to twenty 1 MB photos encoded as JSON.
   app.use('/services', json({ limit: '30mb' }));

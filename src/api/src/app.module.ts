@@ -19,6 +19,7 @@ import { ReviewsService } from './reviews.service';
 import { ServicesController } from './services.controller';
 import { ServicesService } from './services.service';
 import { PresenceController } from './presence.controller';
+import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth.module';
 import { DatabaseModule } from './database.module';
 import { ObjectStorageModule } from './object-storage.module';
@@ -29,7 +30,7 @@ import { NotificationsModule } from './notifications.module';
 import { ProvidersModule } from './providers.module';
 
 @Module({
-  imports: [DatabaseModule, ObjectStorageModule, BookingsModule, QuotesModule, MessagesModule, NotificationsModule, ProvidersModule, AuthModule],
+  imports: [DatabaseModule, ObjectStorageModule, BookingsModule, QuotesModule, MessagesModule, NotificationsModule, ProvidersModule, AuthModule, AiModule],
   controllers: [PresenceController, ReliabilityController, ReliabilityAdminController, DiscoveryController, ProvidersController, AdminController, ComplaintsController, VerificationController, QuotesController, AuthController, ServicesController, BookingsController, MessagesController, NotificationsController, ReviewsController],
   providers: [ReliabilityService, DiscoveryService, AdminService, VerificationService, ServicesService, ReviewsService, PaymentsService],
 })

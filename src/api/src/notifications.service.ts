@@ -123,6 +123,24 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     return { items, nextCursor: records.length > pageSize ? items[pageSize - 1].id : null };
   }
 
+  /** Read-only assistant notification context. Does not create preferences or mark items read. */
+  async assistantSummary(recipientId: string) {
+    const [rows, quoteAlerts] = await Promise.all([
+      this.db.notification.findMany({
+        where: { recipientId }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 12,
+        select: { id: true, kind: true, bookingStatus: true, createdAt: true, readAt: true, booking: { select: { serviceTitle: true } }, quoteRequest: { select: { listing: { select: { title: true } }, status: true } } },
+      }),
+      this.db.quoteAlert.findMany({
+        where: { recipientId, request: { providerId: recipientId } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 10,
+        select: { id: true, message: true, createdAt: true, readAt: true, request: { select: { id: true, status: true, listing: { select: { title: true } } } } },
+      }),
+    ]);
+    return {
+      notifications: rows.map(row => ({ id: row.id, kind: row.kind, bookingStatus: row.bookingStatus, createdAt: row.createdAt, unread: row.readAt === null, service: row.booking?.serviceTitle ?? row.quoteRequest?.listing.title ?? 'Service', quoteStatus: row.quoteRequest?.status ?? null })),
+      quoteAlerts: quoteAlerts.map(alert => ({ id: alert.id, requestId: alert.request.id, message: alert.message.slice(0, 300), createdAt: alert.createdAt, unread: alert.readAt === null, status: alert.request.status, service: alert.request.listing.title })),
+    };
+  }
+
   async markRead(recipientId: string, id: string) {
     const alert = await this.db.notification.findUnique({ where: { id, recipientId }, select: { id: true } });
     if (!alert) throw new NotFoundException('Notification not found');
