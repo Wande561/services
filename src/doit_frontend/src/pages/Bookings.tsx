@@ -126,23 +126,24 @@ export default function Bookings() {
               <BookingSummary booking={booking} role={role} />
               <p className="mt-3 break-words text-sm text-gray-300"><span className="font-medium text-white">Service address</span> {booking.address}</p>
               {booking.notes && <p className="mt-1 whitespace-pre-line break-words text-sm text-gray-300"><span className="font-medium text-white">Notes</span> {booking.notes}</p>}
-              {booking.status === 'Confirmed' && <div className="mt-3 rounded-lg border border-home-line p-3 text-sm text-emerald-300">
-                <p>Client: {booking.clientCompletedAt ? 'Confirmed service completed' : 'Not yet confirmed'} · Provider: {booking.providerCompletedAt ? 'Confirmed service completed' : 'Not yet confirmed'}</p>
-                <p className="mt-1">The service is marked complete only after both parties confirm.</p>
+              {booking.status === 'Confirmed' && <div className="mt-4 rounded-lg border border-home-line p-3 text-sm text-emerald-300">
+                <p>{(role === 'client' ? booking.clientCompletedAt : booking.providerCompletedAt) ? `You confirmed completion. Waiting for the ${role === 'client' ? 'provider' : 'client'}.` : (role === 'client' ? booking.providerCompletedAt : booking.clientCompletedAt) ? `The ${role === 'client' ? 'provider' : 'client'} confirmed completion. Please confirm when the service is done.` : 'Once the service is done, both people need to confirm completion.'}</p>
                 {!(role === 'client' ? booking.clientCompletedAt : booking.providerCompletedAt) && <button type="button" className="btn-primary mt-3 disabled:opacity-50" disabled={completion.isPending} onClick={() => completion.mutate(booking.id)}>{completion.isPending && completion.variables === booking.id ? 'Confirming…' : 'Confirm service completed'}</button>}
                 {completion.isError && completion.variables === booking.id && <p role="alert" className="mt-2 text-red-300">{completion.error.message}</p>}
               </div>}
               <div className="mt-3 flex flex-wrap gap-2">
-                {booking.status !== 'Completed' && <Link to={messagePath(booking.id)} className="btn-secondary">Message {role === 'provider' ? 'client' : 'provider'}</Link>}
+                <Link to={messagePath(booking.id)} className="btn-secondary">{booking.status === 'Completed' ? 'View conversation' : `Message ${role === 'provider' ? 'client' : 'provider'}`}</Link>
                 {bookingActions(booking, role).map(action => action.status === 'Cancelled' || action.status === 'Declined' ? <CancelBooking key={action.status} booking={booking} role={role} status={action.status} label={action.label} /> : <button key={action.status} type="button" disabled={update.isPending} className="btn-primary disabled:opacity-50" onClick={() => update.mutate({ id: booking.id, status: action.status })}>{action.label}</button>)}
               </div>
               {update.isError && update.variables?.id === booking.id &&
                 <p role="alert" className="mt-2 text-sm text-red-300">{update.error.message}</p>}
-              <BookingReliability booking={booking} role={role} />
               <BookingPayment booking={booking} role={role} />
+              <BookingReliability booking={booking} role={role} />
               {booking.status === 'Completed' && <>
-                {booking.review && <div className="mt-4 border-t border-gray-700 pt-3 text-sm text-gray-300"><p className="font-medium text-orange-200">Client’s review of provider · {booking.review.rating} out of 5</p>{booking.review.comment && <p className="mt-1 whitespace-pre-wrap break-words">{booking.review.comment}</p>}</div>}
-                {booking.clientReview && <div className="mt-4 border-t border-gray-700 pt-3 text-sm text-gray-300"><p className="font-medium text-orange-200">Provider’s review of client · {booking.clientReview.rating} out of 5</p>{booking.clientReview.comment && <p className="mt-1 whitespace-pre-wrap break-words">{booking.clientReview.comment}</p>}</div>}
+                {(booking.review || booking.clientReview) && <details className="mt-4 border-t border-gray-700 pt-3 text-sm text-gray-300"><summary className="cursor-pointer font-semibold text-emerald-300">View reviews</summary>
+                  {booking.review && <div className="mt-3"><p className="font-medium text-orange-200">Client’s review of provider · {booking.review.rating} out of 5</p>{booking.review.comment && <p className="mt-1 whitespace-pre-wrap break-words">{booking.review.comment}</p>}</div>}
+                  {booking.clientReview && <div className="mt-3"><p className="font-medium text-orange-200">Provider’s review of client · {booking.clientReview.rating} out of 5</p>{booking.clientReview.comment && <p className="mt-1 whitespace-pre-wrap break-words">{booking.clientReview.comment}</p>}</div>}
+                </details>}
                 {(role === 'client' ? !booking.review : !booking.clientReview) && <ReviewForm bookingId={booking.id} role={role} />}
               </>}
             </article>

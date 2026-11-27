@@ -44,8 +44,8 @@ export default function BookingPayment({ booking, role }: { booking: Booking; ro
   if (!booking.listingPrice && booking.status !== 'Completed') return null;
   return (
     <section aria-label="Payment" className="mt-4 space-y-2 border-t border-gray-700 pt-3 text-sm text-gray-300">
-      <h4 className="font-semibold text-white">Payment</h4>
-      {booking.listingPrice && <p>{booking.quoteRequestId ? 'Accepted quotation' : 'Listing rate at booking'} · {formatListingPrice(booking.listingPrice)}</p>}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"><h4 className="font-semibold text-white">Payment</h4>{booking.listingPrice && <span className="font-semibold text-white">{formatListingPrice(booking.listingPrice)}</span>}</div>
+      {booking.listingPrice && <p className="text-xs text-gray-400">{booking.quoteRequestId ? 'Accepted quote' : 'Rate at booking'}</p>}
       {paidDeposit > 0 && <p className="text-green-200">Deposit confirmed · {formatRand(paidDeposit)} · Remaining quoted balance {formatRand(Math.max(0, (booking.listingPrice?.priceCents ?? 0) - paidDeposit))}</p>}
       {payment && (
         <p className="font-medium text-green-200">
@@ -54,8 +54,8 @@ export default function BookingPayment({ booking, role }: { booking: Booking; ro
         </p>
       )}
       {!payment && freeRate && <p>Free at the listed rate.</p>}
-      {!payment && !freeRate && booking.status === 'Completed' && <p>Awaiting payment record</p>}
-      {!freeRate && (booking.status === 'Pending' || booking.status === 'Confirmed') && <p>{paidDeposit ? 'The remaining balance is paid directly to the provider after the service.' : 'Any payment is made directly to the provider after the service.'}</p>}
+      {!payment && !freeRate && booking.status === 'Completed' && <p>Payment not yet recorded</p>}
+      {!freeRate && (booking.status === 'Pending' || booking.status === 'Confirmed') && <p>{paidDeposit ? 'Pay the remaining balance directly to the provider.' : 'Pay the provider directly after the service.'}</p>}
       {role === 'provider' && booking.status === 'Completed' && !payment && (
         <details>
           <summary className="cursor-pointer font-semibold text-orange-300">Record payment</summary>
