@@ -6,13 +6,17 @@ Use Node.js 18 or newer and PostgreSQL. Install dependencies with `npm ci`, copy
 
 For Google sign-in, configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `API_URL`, and `FRONTEND_URL`. Register `API_URL/auth/google/callback` as an authorized redirect URI in Google Cloud.
 
+Password recovery uses Resend. Configure `RESEND_API_KEY` and a verified sender address in `MAIL_FROM`; reset links are sent to `FRONTEND_URL/reset-password` and expire after 30 minutes. Without these settings, reset requests still return a neutral response but no email is delivered.
+
 The API exposes `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, and `GET /auth/google`. The register and login endpoints accept JSON and return the signed-in user with an HTTP-only session cookie. Requests that change state must include the configured frontend origin.
 
 `PATCH /auth/profile` updates the signed-in user’s name, phone, location, and provider business name and categories. `POST /auth/password` verifies the current password, changes it, and signs out other sessions. Google-only accounts cannot change their password here. Both endpoints require the configured frontend origin.
 
 `POST /auth/onboarding` saves the signed-in user's role and profile. It accepts `role` (`client` or `provider`), `name`, `phone`, and `location`. Providers also supply `businessName` and `serviceCategories`. The endpoint returns the updated account, and `GET /auth/me` includes its `profile` on future requests.
 
-`GET /services` returns published listings with optional `search`, `category`, `location`, and `page` filters. Providers use `GET /services/mine` to see their listings, `POST /services` to create a draft, `PUT /services/:id` to edit it, and `PATCH /services/:id/publication` with `isPublished` to publish or unpublish. Prices are stored as integer rand cents.
+Password recovery uses `POST /auth/password-reset/request` with `email` and `POST /auth/password-reset/complete` with `token` and `newPassword`. Reset tokens are one-time, expire after 30 minutes, and signing in again is required after the password changes.
+
+`GET /services` returns published listings with optional `search`, `category`, `location`, `page`, and `sort` filters. Sort values are `newest`, `price_asc`, `price_desc`, `rating` (most reviewed, then highest average rating), and `verified`. Providers use `GET /services/mine` to see their listings, `POST /services` to create a draft, `PUT /services/:id` to edit it, and `PATCH /services/:id/publication` with `isPublished` to publish or unpublish. Prices are stored as integer rand cents.
 
 Clients use `GET /services/:id` and `GET /bookings/slots?service=:id` to select a published service and open slot. `POST /bookings` requires `listingId`, `slotId`, and `address`, with optional `notes`. Each participant can read their history with `GET /bookings` and update a booking through `PATCH /bookings/:id/status` when the transition is allowed.
 
@@ -21,6 +25,8 @@ Providers manage availability with `GET /bookings/availability`, `POST /bookings
 Booking participants use `GET /messages` for their conversations, `GET /messages/:bookingId` for a thread, `POST /messages/:bookingId` with `body` to send a message, and `PATCH /messages/:bookingId/read` with `ids` to mark displayed messages read.
 
 `GET /notifications` lists the signed-in user’s notifications. `GET /notifications/unread` returns separate unread message and notification counts. Use `PATCH /notifications/:id/read` or `PATCH /notifications/read-all` to mark alerts read.
+
+`GET /notifications/preferences` and `PATCH /notifications/preferences` read and update in-app booking, message, review, payment, appointment, and expiring quote reminder choices. Confirmed bookings and active quotations receive an in-app reminder within 24 hours when the recipient has reminders enabled.
 
 Clients and providers independently confirm service completion using `POST /bookings/:id/confirm-completion`; a confirmed booking becomes completed after both confirmations. Providers rate the client using `POST /reviews/:bookingId/client`. `GET /reviews/mine` returns the signed-in client or provider’s rating totals. Clients submit one review per completed booking with `POST /reviews/:bookingId`, an integer `rating` from 1 to 5, and an optional `comment`. `GET /reviews/services/:listingId` returns public reviews and rating totals for published services. `GET /reviews/mine` returns the signed-in user’s totals.
 

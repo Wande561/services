@@ -32,6 +32,18 @@ export class AuthController {
     return this.signIn(user.id, res);
   }
 
+  @Post('password-reset/request')
+  async requestPasswordReset(@Body() body: any, @Req() req: Request) {
+    checkFrontendOrigin(req.get('origin'));
+    return this.auth.requestPasswordReset(body?.email);
+  }
+
+  @Post('password-reset/complete')
+  async completePasswordReset(@Body() body: any, @Req() req: Request) {
+    checkFrontendOrigin(req.get('origin'));
+    return this.auth.resetPassword(body?.token, body?.newPassword);
+  }
+
   @Get('me')
   me(@Req() req: Request) { return this.auth.currentUser(req.cookies?.session); }
 

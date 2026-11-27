@@ -8,6 +8,18 @@ import { quotes, quoteKey, quoteTime, sastTime, sastInputTime, durationInHours, 
 
 const field = 'mt-1 w-full rounded-lg border border-home-control bg-home-canvas p-3 text-white';
 const statuses: Record<QuoteRequest['status'], string> = { Pending: 'Awaiting quotation', Quoted: 'Quotation received', Accepted: 'Quote accepted', Declined: 'Quote declined', RevisionRequested: 'Changes requested', DepositPending: 'Deposit pending', SlotUnavailable: 'Appointment unavailable' };
+function QuoteProgress({ request }: { request: QuoteRequest }) {
+  const closed = request.status === 'Declined' || request.status === 'SlotUnavailable';
+  const quoteSent = request.status !== 'Pending';
+  const accepted = request.status === 'Accepted' || request.status === 'DepositPending' || Boolean(request.booking);
+  const steps = [
+    { label: 'Request sent', complete: true },
+    { label: 'Quotation received', complete: quoteSent },
+    { label: 'Quote accepted', complete: accepted },
+    { label: 'Booking created', complete: Boolean(request.booking) },
+  ];
+  return <div className="mt-4 rounded-xl border border-home-line bg-home-canvas/60 p-4"><p className="text-xs font-semibold uppercase tracking-wider text-emerald-300">Quote to booking</p><ol className="mt-3 grid gap-3 sm:grid-cols-4">{steps.map((step, index) => <li key={step.label} className="flex items-center gap-2 text-sm"><span aria-hidden="true" className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs ${step.complete ? 'border-emerald-300 bg-emerald-300 text-home-canvas' : 'border-home-line text-emerald-300/70'}`}>{step.complete ? '✓' : index + 1}</span><span className={step.complete ? 'text-home-text' : 'text-emerald-300/70'}>{step.label}</span></li>)}</ol>{request.status === 'RevisionRequested' && <p role="status" className="mt-3 text-sm text-amber-200">The client requested changes. The provider can send a revised quotation.</p>}{request.status === 'DepositPending' && <p role="status" className="mt-3 text-sm text-amber-200">The client accepted the quote. Confirm the deposit to finish setting up the booking.</p>}{closed && <p role="status" className="mt-3 text-sm text-amber-200">{request.status === 'Declined' ? 'This quotation was declined.' : 'The requested appointment time is unavailable.'}</p>}</div>;
+}
 function QuoteDetails({ version }: { version: QuoteVersion }) {
   return <div className="space-y-1 text-sm text-emerald-300"><p className="whitespace-pre-wrap font-editorial text-xl text-white">{version.serviceDescription}</p>
     <p>Labour: {formatRand(version.labourCents)} · Materials: {formatRand(version.materialsCents)} · Travel: {formatRand(version.travelCents)}</p>
@@ -99,6 +111,7 @@ export default function Quotes() {
     <div className="mt-5 space-y-5">{query.data?.filter(request => !selected || request.id === selected).map(request => <article key={request.id} className="quote-request-card rounded-xl border border-home-line bg-home-surface p-6">
       <div className="flex flex-wrap justify-between gap-2"><h2 className="text-2xl !text-emerald-300">{request.listing.title}</h2><span className="text-sm text-emerald-300">{statuses[request.status]}</span></div>
       <p className="mt-2 text-sm text-emerald-300">{role === 'provider' ? `Client: ${request.client.user.name || 'Client'}` : `Provider: ${request.provider.businessName || 'Provider'}`}</p>
+      <QuoteProgress request={request} />
       {role === 'client' && request.provider.verificationTier !== 'Basic' && <p className="mt-1 text-sm font-semibold text-emerald-300">{request.provider.verificationTier === 'IdentityVerified' ? '✓ Identity verified' : '✓ Business verified'}</p>}
       {role === 'provider' && request.client.verificationTier === 'IdentityVerified' && <p className="mt-1 text-sm font-semibold text-emerald-300">✓ Identity verified client</p>}
       {role === 'provider' && request.clientRating && <p className="mt-1 text-sm text-emerald-300">Client rating: {request.clientRating.reviewCount ? `${request.clientRating.averageRating?.toFixed(1)} out of 5 · ${request.clientRating.reviewCount} ${request.clientRating.reviewCount === 1 ? 'review' : 'reviews'}` : 'No ratings yet'}</p>}

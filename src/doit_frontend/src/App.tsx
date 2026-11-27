@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from './contexts/AppContext';
 import Home from './pages/Home';
 import SiteNavbar from './components/SiteNavbar';
 import SignIn from './pages/SignIn';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Onboarding from './pages/Onboarding';
 import Services from './pages/Services';
 import ListingDetail from './pages/ListingDetail';
@@ -54,6 +56,8 @@ function AppRoutes() {
   return <div className={pathname === '/' ? undefined : 'app-theme'}><SiteNavbar /><div className="page-stage min-w-0 md:pl-64" data-page={page}><Routes>
             <Route path="/" element={<Home />} />
             <Route path="/signin" element={<SignIn />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/services" element={<Services />} />
             <Route path="/services/:listingId" element={<ListingDetail />} />

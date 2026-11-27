@@ -70,6 +70,66 @@ export class AuthService {
     return user;
   }
 
+  async requestPasswordReset(email: unknown) {
+    const normalized = this.normalizeEmail(email);
+    const user = await this.db.user.findUnique({ where: { email: normalized }, select: { id: true, email: true, passwordHash: true, name: true } });
+    const emailConfigured = Boolean(process.env.RESEND_API_KEY?.trim() && process.env.MAIL_FROM?.trim());
+    if (!user?.passwordHash) return { success: true, emailConfigured };
+
+    const rawToken = randomBytes(32).toString('base64url');
+    const tokenHash = this.hashToken(rawToken);
+    await this.db.$transaction([
+      this.db.passwordResetToken.deleteMany({ where: { userId: user.id } }),
+      this.db.passwordResetToken.create({ data: { tokenHash, userId: user.id, expiresAt: new Date(Date.now() + 30 * 60 * 1000) } }),
+    ]);
+    await this.sendPasswordResetEmail(user.email, user.name, rawToken);
+    return { success: true, emailConfigured };
+  }
+
+  private async sendPasswordResetEmail(email: string, name: string | null, token: string) {
+    const apiKey = process.env.RESEND_API_KEY?.trim();
+    const from = process.env.MAIL_FROM?.trim();
+    if (!apiKey || !from) {
+      console.warn('Password reset email not sent: configure RESEND_API_KEY and MAIL_FROM.');
+      return;
+    }
+    const resetUrl = new URL('/reset-password', process.env.FRONTEND_URL || 'http://localhost:3000');
+    resetUrl.searchParams.set('token', token);
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from,
+          to: [email],
+          subject: 'Reset your ServiceConnect password',
+          text: `Hi ${name?.trim() || 'there'},\n\nUse this link to choose a new password. It expires in 30 minutes and can only be used once.\n\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+        }),
+      });
+      if (!response.ok) console.error(`Password reset email provider returned ${response.status}.`);
+    } catch {
+      console.error('Password reset email could not be delivered.');
+    }
+  }
+
+  async resetPassword(token: unknown, newPassword: unknown) {
+    if (typeof token !== 'string' || token.length < 30 || token.length > 200) throw new BadRequestException('This password reset link is invalid or has expired');
+    this.validatePassword(newPassword);
+    const tokenHash = this.hashToken(token);
+    const reset = await this.db.passwordResetToken.findUnique({ where: { tokenHash }, select: { userId: true, expiresAt: true } });
+    if (!reset || reset.expiresAt <= new Date()) throw new BadRequestException('This password reset link is invalid or has expired');
+    const salt = randomBytes(16).toString('hex');
+    const hash = (await scrypt(newPassword, salt, 64)) as Buffer;
+    await this.db.$transaction(async tx => {
+      const used = await tx.passwordResetToken.deleteMany({ where: { tokenHash, expiresAt: { gt: new Date() } } });
+      if (used.count !== 1) throw new BadRequestException('This password reset link is invalid or has expired');
+      await tx.user.update({ where: { id: reset.userId }, data: { passwordHash: `${salt}:${hash.toString('hex')}` } });
+      await tx.session.deleteMany({ where: { userId: reset.userId } });
+      await tx.passwordResetToken.deleteMany({ where: { userId: reset.userId } });
+    });
+    return { success: true };
+  }
+
   googleConfigured() {
     return Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim());
   }

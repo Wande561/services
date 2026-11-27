@@ -61,6 +61,7 @@ export interface ServiceListing extends ServiceListingInput {
   providerName: string;
   isPublished: boolean;
   reviewCount: number;
+  averageRating?: number | null;
 }
 
 export interface AvailabilitySlot {
@@ -139,7 +140,7 @@ export interface AppNotification {
   id: string;
   bookingId: string;
   serviceTitle: string;
-  kind: 'BookingRequested' | 'BookingStatusChanged' | 'MessageReceived' | 'ReviewReceived' | 'PaymentRecorded' | 'PaymentVoided' | 'ServiceCompletionConfirmation';
+  kind: 'BookingRequested' | 'BookingStatusChanged' | 'MessageReceived' | 'ReviewReceived' | 'PaymentRecorded' | 'PaymentVoided' | 'ServiceCompletionConfirmation' | 'AppointmentReminder';
   bookingStatus: BookingStatus | null;
   createdAt: string;
   read: boolean;

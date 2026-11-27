@@ -92,6 +92,10 @@ export class ServicesService {
     const search = optionalText(query.search, 'a search term', 120);
     const location = optionalText(query.location, 'a service area', 150);
     const page = getPage(query.page);
+    const sort = query.sort ?? 'newest';
+    if (sort !== 'newest' && sort !== 'price_asc' && sort !== 'price_desc' && sort !== 'rating' && sort !== 'verified') {
+      throw new BadRequestException('Choose a valid service sort order');
+    }
     const category = query.category;
     if (category !== undefined && !isEnumValue(ServiceCategory, category)) {
       throw new BadRequestException('Choose a valid category');
@@ -104,11 +108,47 @@ export class ServicesService {
       const filter = contains(search);
       where.OR = [{ title: filter }, { description: filter }, { provider: { businessName: filter } }];
     }
-    const [records, total] = await this.db.$transaction([
-      this.db.serviceListing.findMany({ where, orderBy: newestFirst, skip: (page - 1) * pageSize, take: pageSize, select: listingFields }),
-      this.db.serviceListing.count({ where }),
-    ], { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
-    return { listings: records.map(formatListing), total, pageSize };
+    const total = await this.db.serviceListing.count({ where });
+    let ids: string[] | undefined;
+    if (sort === 'rating') {
+      const matches = await this.db.serviceListing.findMany({ where, select: { id: true } });
+      ids = matches.map(item => item.id);
+      if (ids.length) {
+        const ratings = await this.db.$queryRaw<{ listingId: string; averageRating: number; reviewCount: bigint }[]>`
+          SELECT b."listingId" AS "listingId", AVG(r."rating")::float AS "averageRating", COUNT(r."id") AS "reviewCount"
+          FROM "Review" r INNER JOIN "Booking" b ON b."id" = r."bookingId"
+          WHERE b."listingId" IN (${Prisma.join(ids)})
+          GROUP BY b."listingId"
+        `;
+        const ratingById = new Map(ratings.map(row => [row.listingId, { average: row.averageRating, count: Number(row.reviewCount) }]));
+        ids.sort((a, b) => (ratingById.get(b)?.count ?? 0) - (ratingById.get(a)?.count ?? 0) || (ratingById.get(b)?.average ?? 0) - (ratingById.get(a)?.average ?? 0) || a.localeCompare(b));
+      }
+    }
+    const orderBy = sort === 'price_asc' ? [{ priceCents: 'asc' }, ...newestFirst] as Prisma.ServiceListingOrderByWithRelationInput[]
+      : sort === 'price_desc' ? [{ priceCents: 'desc' }, ...newestFirst] as Prisma.ServiceListingOrderByWithRelationInput[]
+      : sort === 'verified' ? [{ provider: { verificationTier: 'desc' } }, ...newestFirst] as Prisma.ServiceListingOrderByWithRelationInput[]
+      : newestFirst;
+    const skip = (page - 1) * pageSize;
+    const records = sort === 'rating'
+      ? await this.db.serviceListing.findMany({ where: { ...where, id: { in: (ids ?? []).slice(skip, skip + pageSize) } }, select: listingFields })
+      : await this.db.serviceListing.findMany({ where, orderBy, skip, take: pageSize, select: listingFields });
+    const ordered = sort === 'rating' ? [...records].sort((a, b) => (ids ?? []).indexOf(a.id) - (ids ?? []).indexOf(b.id)) : records;
+    const formatted = ordered.map(formatListing);
+    if (ordered.length) {
+      const pageIds = ordered.map(item => item.id);
+      const ratings = await this.db.$queryRaw<{ listingId: string; averageRating: number; reviewCount: bigint }[]>`
+        SELECT b."listingId" AS "listingId", AVG(r."rating")::float AS "averageRating", COUNT(r."id") AS "reviewCount"
+        FROM "Review" r INNER JOIN "Booking" b ON b."id" = r."bookingId"
+        WHERE b."listingId" IN (${Prisma.join(pageIds)}) GROUP BY b."listingId"
+      `;
+      const ratingById = new Map(ratings.map(row => [row.listingId, { average: row.averageRating, count: Number(row.reviewCount) }]));
+      for (const listing of formatted) {
+        const rating = ratingById.get(listing.id);
+        (listing as typeof listing & { averageRating: number | null }).averageRating = rating?.average ?? null;
+        listing.reviewCount = rating?.count ?? 0;
+      }
+    }
+    return { listings: formatted, total, pageSize };
   }
 
   async listForProvider(providerId: string) {
