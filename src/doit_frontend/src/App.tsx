@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AppContext';
+import { PresenceProvider } from './contexts/PresenceContext';
 import Home from './pages/Home';
 import SiteNavbar from './components/SiteNavbar';
 import SignIn from './pages/SignIn';
@@ -99,9 +100,11 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <PresenceProvider>
         <BrowserRouter>
           <AppRoutes />
         </BrowserRouter>
+        </PresenceProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

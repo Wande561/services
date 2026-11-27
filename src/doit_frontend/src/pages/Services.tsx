@@ -11,9 +11,10 @@ import { categoryLabel } from '../utils/serviceUtils';
 const filterClass = 'discovery-filter__input';
 
 export default function Services() {
-  const { currentUser } = useAuth();
+  const { currentUser, isLoading } = useAuth();
   const [params, setParams] = useSearchParams();
-  const { data, isPending, isError, error, refetch } = useQuery(catalogListings(params));
+  const viewerKey = currentUser ? `${currentUser.id}:${currentUser.profile?.role ?? 'new'}` : 'guest';
+  const { data, isPending, isError, error, refetch } = useQuery({ ...catalogListings(params, viewerKey), enabled: !isLoading });
   const page = Number(params.get('page') ?? 1);
   const totalPages = data ? Math.ceil(data.total / data.pageSize) : 0;
 

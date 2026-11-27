@@ -33,7 +33,7 @@ function events(bookings: Thread[]): Item[] {
 function details(bookings: Thread[], role: AccountRole) {
   const latest = bookings[0];
   const active = bookings.find(open);
-  return { bookingId: latest.id, activeBookingId: active?.id ?? null, closed: !active, serviceTitle: latest.serviceTitle,
+  return { bookingId: latest.id, activeBookingId: active?.id ?? null, closed: !active, serviceTitle: latest.serviceTitle, contactId: role === 'client' ? latest.slot.providerId : latest.clientId,
     contactName: role === 'client' ? latest.slot.provider.businessName ?? 'Provider' : latest.client.user.name ?? 'Client' };
 }
 @Injectable()

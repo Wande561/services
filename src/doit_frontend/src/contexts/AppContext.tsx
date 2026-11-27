@@ -36,10 +36,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string, keepSignedIn = false) => {
     const user = await apiRequest<Account>('/auth/login', { method: 'POST', data: { email, password, keepSignedIn } });
+    queryClient.clear();
     setCurrentUser(user);
   };
   const register = async (name: string, email: string, password: string, keepSignedIn = false) => {
     const user = await apiRequest<Account>('/auth/register', { method: 'POST', data: { name, email, password, keepSignedIn } });
+    queryClient.clear();
     setCurrentUser(user);
   };
   const completeOnboarding = async (input: OnboardingInput) => {
@@ -58,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
   const logout = async () => {
     setError(null);
-    try { await apiRequest('/auth/logout', { method: 'POST' }); setCurrentUser(null); }
+    try { await apiRequest('/auth/logout', { method: 'POST' }); queryClient.clear(); setCurrentUser(null); }
     catch (err) { setError(err instanceof Error ? err.message : 'Could not sign out'); }
   };
   const googleLogin = (keepSignedIn = false) => { window.location.href = `/api/auth/google?keepSignedIn=${keepSignedIn}`; };

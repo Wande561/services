@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AppContext';
+import PresenceStatus from '../components/PresenceStatus';
 import { apiRequest } from '../utils/apiRequest';
 import { formatRand, parseRandCents } from '../utils/money';
 import { quotes, quoteKey, quoteTime, sastTime, sastInputTime, durationInHours, type QuoteRequest, type QuoteVersion } from '../utils/quotes';
@@ -111,6 +112,7 @@ export default function Quotes() {
     <div className="mt-5 space-y-5">{query.data?.filter(request => !selected || request.id === selected).map(request => <article key={request.id} className="quote-request-card rounded-xl border border-home-line bg-home-surface p-6">
       <div className="flex flex-wrap justify-between gap-2"><h2 className="text-2xl !text-emerald-300">{request.listing.title}</h2><span className="text-sm text-emerald-300">{statuses[request.status]}</span></div>
       <p className="mt-2 text-sm text-emerald-300">{role === 'provider' ? `Client: ${request.client.user.name || 'Client'}` : `Provider: ${request.provider.businessName || 'Provider'}`}</p>
+      {role && role !== 'admin' && <PresenceStatus userId={role === 'provider' ? request.clientId : request.providerId} />}
       <QuoteProgress request={request} />
       {role === 'client' && request.provider.verificationTier !== 'Basic' && <p className="mt-1 text-sm font-semibold text-emerald-300">{request.provider.verificationTier === 'IdentityVerified' ? '✓ Identity verified' : '✓ Business verified'}</p>}
       {role === 'provider' && request.client.verificationTier === 'IdentityVerified' && <p className="mt-1 text-sm font-semibold text-emerald-300">✓ Identity verified client</p>}

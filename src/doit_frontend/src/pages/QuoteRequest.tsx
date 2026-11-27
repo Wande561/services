@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { bookingListing } from '../utils/bookings';
+import PresenceStatus from '../components/PresenceStatus';
+import { useAuth } from '../contexts/AppContext';
 import { apiRequest } from '../utils/apiRequest';
 import { quoteKey, sastTime, parsePreferredTime } from '../utils/quotes';
 
@@ -11,6 +13,7 @@ function readPhoto(file: File): Promise<string> {
 }
 export default function QuoteRequestPage() {
   const [params] = useSearchParams(); const listingId = params.get('service') ?? '';
+  const { currentUser } = useAuth();
   const listing = useQuery(bookingListing(listingId)); const navigate = useNavigate(); const client = useQueryClient();
   const [referencePhotoId, setReferencePhotoId] = useState(params.get('photo') ?? '');
   const [files, setFiles] = useState<File[]>([]); const [error, setError] = useState('');
@@ -24,8 +27,9 @@ export default function QuoteRequestPage() {
     catch (err) { setError(err instanceof Error ? err.message : 'Could not send your request.'); }
   }
   return <main className="request-page"><div className="request-shell"><div className="request-intro"><Link to="/services" className="discovery-back">← Back to services</Link><p className="discovery-kicker">LET'S GET STARTED / 01</p><h1>Tell us what<br /><em>you have in mind.</em></h1><p>Share a few details and the provider can put together a quotation for you.</p><div className="request-intro__note"><span>HOW IT WORKS</span><p>01 &nbsp; Send your request</p><p>02 &nbsp; Review your quotation</p><p>03 &nbsp; Agree on your appointment</p></div></div><div className="request-content">
-    {!listingId ? <p className="mt-5 text-emerald-300">Choose a service first.</p> : listing.isPending ? <p className="mt-5">Loading service…</p> : listing.isError ? <p role="alert" className="mt-5 text-red-300">{listing.error.message}</p> : <form onSubmit={submit} className="request-form"><div className="request-form__head"><p className="discovery-kicker">THE DETAILS</p><h2>Request a quote</h2><p>Tell your provider what you need.</p></div>
+    {!listingId ? <p className="mt-5 text-emerald-300">Choose a service first.</p> : listing.isPending ? <p className="mt-5">Loading service…</p> : listing.isError ? <p role="alert" className="mt-5 text-red-300">{listing.error.message}</p> : listing.data.providerId === currentUser?.id ? <p className="mt-5 text-emerald-300">Service not found.</p> : <form onSubmit={submit} className="request-form"><div className="request-form__head"><p className="discovery-kicker">THE DETAILS</p><h2>Request a quote</h2><p>Tell your provider what you need.</p></div>
       <p className="text-emerald-300">Service: <strong className="text-home-text">{listing.data.title}</strong> · {listing.data.providerName}</p>
+      <PresenceStatus userId={listing.data.providerId} />
       {listing.data.verificationTier !== 'Basic' && <p className="text-sm font-semibold text-emerald-300">✓ {listing.data.verificationTier === 'BusinessVerified' ? 'Business verified' : 'Identity verified'} provider</p>}
       {listing.data.photos.length > 0 && <fieldset><legend className="font-semibold text-home-text">Use a listing photo as a reference? (optional)</legend><p className="mt-1 text-sm text-emerald-300">Choose a photo or continue without one. You can also upload your own photos below.</p><label className="mt-3 flex items-center gap-2 text-sm"><input type="radio" name="referencePhoto" checked={!referencePhotoId} onChange={() => setReferencePhotoId('')} /> No listing photo</label><div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">{listing.data.photos.map((photo, index) => <label key={photo.id} className={`cursor-pointer rounded-lg border-2 p-1 ${referencePhotoId === photo.id ? 'border-emerald-300' : 'border-transparent'}`}><input type="radio" className="sr-only" name="referencePhoto" value={photo.id} checked={referencePhotoId === photo.id} onChange={() => setReferencePhotoId(photo.id)} /><img src={`/api/services/photos/${encodeURIComponent(photo.id)}`} alt={`Listing photo ${index + 1}`} className="aspect-square w-full rounded object-cover" /><span className="block py-1 text-center text-xs text-emerald-300">Photo {index + 1}{referencePhotoId === photo.id ? ' ✓' : ''}</span></label>)}</div></fieldset>}
       {referencePhotoId && !listing.data.photos.some(photo => photo.id === referencePhotoId) && <p role="alert" className="text-sm text-red-300">The selected photo is no longer available. Choose another photo or select no listing photo.</p>}

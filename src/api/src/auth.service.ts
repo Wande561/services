@@ -199,6 +199,16 @@ export class AuthService {
     return user;
   }
 
+  async recordPresence(token?: string) {
+    const account = await this.currentUser(token);
+    const now = new Date();
+    await this.db.$transaction([
+      this.db.session.updateMany({ where: { tokenHash: this.hashToken(token!), userId: account.id, expiresAt: { gt: now } }, data: { lastActiveAt: now } }),
+      this.db.user.update({ where: { id: account.id }, data: { lastSeenAt: now } }),
+    ]);
+    return { success: true };
+  }
+
   async requireProfile(token?: string, requiredRole?: AccountRole) {
     const account = await this.currentUser(token);
     const role = account.profile?.role;
@@ -298,7 +308,7 @@ export class AuthService {
     let businessName: string | null = user.profile.providerEnabled || user.profile.role === AccountRole.admin ? user.profile.businessName : null;
     let serviceCategories: ServiceCategory[] = user.profile.providerEnabled || user.profile.role === AccountRole.admin ? user.profile.serviceCategories : [];
     let otherService = user.profile.otherService;
-    if (user.profile.providerEnabled || user.profile.role === AccountRole.provider) {
+    if (user.profile.role === AccountRole.provider) {
       businessName = requiredText(input.businessName, 'your business name', 120);
       const categories = input.serviceCategories;
       if (!Array.isArray(categories) || !categories.length || categories.length > supportedCategories.size ||
@@ -313,7 +323,7 @@ export class AuthService {
       await tx.$queryRaw`SELECT "userId" FROM "Profile" WHERE "userId" = ${user.id} FOR UPDATE`;
       const current = await tx.profile.findUniqueOrThrow({ where: { userId: user.id }, select: { phone: true, businessName: true, user: { select: { name: true } } } });
       const mustReverify = current.user.name !== name || current.phone !== phone || (user.profile!.providerEnabled && current.businessName !== businessName);
-      const profile = await tx.profile.update({ where: { userId: user.id }, data: { phone, location, businessName, serviceCategories, otherService, ...(mustReverify ? { verificationTier: 'Basic' as const } : {}) }, select: profileFields });
+      const profile = await tx.profile.update({ where: { userId: user.id }, data: { phone, location, ...(user.profile!.role === AccountRole.provider ? { businessName, serviceCategories, otherService } : {}), ...(mustReverify ? { verificationTier: 'Basic' as const } : {}) }, select: profileFields });
       await tx.user.update({ where: { id: user.id }, data: { name } });
       return { ...user, name, profile };
     });

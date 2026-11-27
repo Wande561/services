@@ -1,5 +1,6 @@
 import type { AccountRole, Booking, BookingStatus } from '../types';
 import { formatSlot } from '../utils/bookings';
+import PresenceStatus from './PresenceStatus';
 
 const statusStyles: Record<BookingStatus, string> = {
   Pending: 'bg-yellow-500/15 text-yellow-200',
@@ -17,6 +18,7 @@ export default function BookingSummary({ booking, role }: { booking: Booking; ro
         <p className="break-words text-sm text-gray-300">
           {role === 'provider' ? booking.clientName : booking.providerName}
         </p>
+        <PresenceStatus userId={role === 'provider' ? booking.clientId : booking.providerId} />
         {role === 'client' && booking.providerVerificationTier && booking.providerVerificationTier !== 'Basic' && <p className="mt-1 text-xs font-semibold text-emerald-300">✓ {booking.providerVerificationTier === 'BusinessVerified' ? 'Business verified' : 'Identity verified'} provider</p>}
         {role === 'provider' && booking.clientVerificationTier === 'IdentityVerified' && <p className="mt-1 text-xs font-semibold text-emerald-300">✓ Identity verified client</p>}
         <p className="mt-1 text-sm text-gray-300">{formatSlot(booking)}</p>

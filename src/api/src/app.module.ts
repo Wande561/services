@@ -25,9 +25,10 @@ import { ReviewsController } from './reviews.controller';
 import { ReviewsService } from './reviews.service';
 import { ServicesController } from './services.controller';
 import { ServicesService } from './services.service';
+import { PresenceController } from './presence.controller';
 
 @Module({
-  controllers: [ReliabilityController, ReliabilityAdminController, DiscoveryController, ProvidersController, AdminController, ComplaintsController, VerificationController, QuotesController, AuthController, ServicesController, BookingsController, MessagesController, NotificationsController, ReviewsController],
+  controllers: [PresenceController, ReliabilityController, ReliabilityAdminController, DiscoveryController, ProvidersController, AdminController, ComplaintsController, VerificationController, QuotesController, AuthController, ServicesController, BookingsController, MessagesController, NotificationsController, ReviewsController],
   providers: [ReliabilityService, DiscoveryService, ProvidersService, AdminService, VerificationService, QuotesService, AuthService, PrismaService, ServicesService, BookingsService, MessagesService, NotificationsService, ReviewsService, PaymentsService],
 })
 export class AppModule {}

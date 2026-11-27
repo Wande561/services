@@ -34,9 +34,11 @@ const bookingFields = {
 
 type BookingRecord = Prisma.BookingGetPayload<{ select: typeof bookingFields }>;
 
-function formatBooking({ slot, client, clientId: _clientId, priceCents, maxPriceCents, priceUnit, ...booking }: BookingRecord) {
+function formatBooking({ slot, client, clientId, priceCents, maxPriceCents, priceUnit, ...booking }: BookingRecord) {
   return {
     ...booking,
+    clientId,
+    providerId: slot.providerId,
     startsAt: slot.startsAt,
     endsAt: slot.endsAt,
     providerName: slot.provider.businessName ?? 'Provider',
@@ -161,6 +163,7 @@ export class BookingsService {
         const slotOwner = await tx.availabilitySlot.findUnique({ where: { id: slotId }, select: { providerId: true } });
         if (!slotOwner) throw new NotFoundException('Availability slot not found');
         const { providerId } = slotOwner;
+        if (providerId === clientId) throw new BadRequestException('You cannot book your own service');
         await lockProfiles(tx, providerId, clientId);
         const listing = await tx.serviceListing.findUnique({
           where: { id: listingId, providerId, isPublished: true },

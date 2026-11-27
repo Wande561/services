@@ -71,6 +71,7 @@ export class QuotesService {
     const listingId = requiredText(body?.listingId, 'a service', 128);
     const listing = await this.db.serviceListing.findFirst({ where: { id: listingId, isPublished: true }, select: { providerId: true } });
     if (!listing) throw new NotFoundException('Service not found');
+    if (listing.providerId === clientId) throw new BadRequestException('You cannot request a quote for your own service');
     const description = requiredText(body?.description, 'the work you need', 2000);
     const location = requiredText(body?.location, 'the service location', 300);
     const preferredAt = future(body?.preferredAt, 'preferred date and time');

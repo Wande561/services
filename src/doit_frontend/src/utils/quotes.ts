@@ -7,7 +7,7 @@ export interface QuoteVersion {
   durationMinutes: number; appointmentAt: string; notes: string | null; expiresAt: string; createdAt: string;
 }
 export interface QuoteRequest {
-  id: string; createdAt: string; updatedAt: string; description: string; preferredAt: string; location: string; additionalInfo: string | null;
+  id: string; clientId: string; providerId: string; createdAt: string; updatedAt: string; description: string; preferredAt: string; location: string; additionalInfo: string | null;
   status: 'Pending' | 'Quoted' | 'Accepted' | 'Declined' | 'RevisionRequested' | 'DepositPending' | 'SlotUnavailable'; changeRequest: string | null;
   clientRating?: { averageRating: number | null; reviewCount: number };
   listing: { title: string }; client: { verificationTier: import('../types').VerificationTier; user: { name: string | null } }; provider: { businessName: string | null; verificationTier: import('../types').VerificationTier };

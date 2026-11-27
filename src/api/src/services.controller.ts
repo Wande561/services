@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, Patch, Post, Put, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { assertCanBook } from './reliability.service';
 import { PrismaService } from './prisma.service';
@@ -11,8 +11,9 @@ export class ServicesController {
   constructor(private readonly auth: AuthService, private readonly services: ServicesService, private readonly db: PrismaService) {}
 
   @Get()
-  search(@Query() query: Record<string, unknown>) {
-    return this.services.search(query);
+  @Header('Cache-Control', 'private, no-store')
+  async search(@Query() query: Record<string, unknown>, @Req() req: Request) {
+    return this.services.search(query, await this.clientViewer(req));
   }
 
   @Get('mine')
@@ -29,8 +30,15 @@ export class ServicesController {
   }
 
   @Get(':id')
-  detail(@Param('id') id: string) {
-    return this.services.detail(id);
+  @Header('Cache-Control', 'private, no-store')
+  async detail(@Param('id') id: string, @Req() req: Request) {
+    return this.services.detail(id, await this.clientViewer(req));
+  }
+
+  private async clientViewer(req: Request) {
+    if (!req.cookies?.session) return undefined;
+    try { const account = await this.auth.currentUser(req.cookies.session); return account.profile?.role === 'client' ? account.id : undefined; }
+    catch { return undefined; }
   }
 
   @Post()

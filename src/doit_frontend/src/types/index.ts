@@ -78,6 +78,8 @@ export type BookingStatus = 'Pending' | 'Confirmed' | 'Declined' | 'Cancelled' |
 
 export interface Booking {
   id: string;
+  clientId: string;
+  providerId: string;
   createdAt: string;
   updatedAt: string;
   quoteRequestId?: string | null;
@@ -132,6 +134,7 @@ export interface BookingMessage {
 
 export interface MessageThread {
   bookingId: string;
+  contactId: string;
   activeBookingId: string | null;
   closed: boolean;
   serviceTitle: string;

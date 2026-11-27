@@ -88,7 +88,7 @@ function listingData(input: ListingInput) {
 export class ServicesService {
   constructor(private readonly db: PrismaService) {}
 
-  async search(query: Record<string, unknown>) {
+  async search(query: Record<string, unknown>, excludeProviderId?: string) {
     const search = optionalText(query.search, 'a search term', 120);
     const location = optionalText(query.location, 'a service area', 150);
     const page = getPage(query.page);
@@ -102,6 +102,7 @@ export class ServicesService {
     }
 
     const where: Prisma.ServiceListingWhereInput = { isPublished: true };
+    if (excludeProviderId) where.providerId = { not: excludeProviderId };
     if (isEnumValue(ServiceCategory, category)) where.category = category;
     if (location) where.location = contains(location);
     if (search) {
@@ -156,8 +157,8 @@ export class ServicesService {
     return records.map(formatListing);
   }
 
-  async detail(id: string) {
-    const record = await this.db.serviceListing.findUnique({ where: { id, isPublished: true }, select: listingFields });
+  async detail(id: string, excludeProviderId?: string) {
+    const record = await this.db.serviceListing.findFirst({ where: { id, isPublished: true, ...(excludeProviderId ? { providerId: { not: excludeProviderId } } : {}) }, select: listingFields });
     if (!record) throw new NotFoundException('Service listing not found');
     return formatListing(record);
   }

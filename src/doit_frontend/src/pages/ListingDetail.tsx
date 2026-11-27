@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import FavoriteButton from '../components/FavoriteButton';
+import PresenceStatus from '../components/PresenceStatus';
 import { apiRequest } from '../utils/apiRequest';
 import { discoveryKey } from '../utils/discovery';
 import { useAuth } from '../contexts/AppContext';
@@ -13,11 +14,11 @@ import { reviewsPath } from '../utils/reviews';
 
 export default function ListingDetail() {
   const { listingId = '' } = useParams();
-  const { currentUser } = useAuth();
+  const { currentUser, isLoading: accountLoading } = useAuth();
   const cache = useQueryClient();
   const listing = useQuery(bookingListing(listingId));
   const [selected, setSelected] = useState(0);
-  const service = listing.data;
+  const service = !accountLoading && !(currentUser?.profile?.role === 'client' && listing.data?.providerId === currentUser.id) ? listing.data : undefined;
   const photos = service?.photos ?? [];
   const selectedIndex = Math.min(selected, Math.max(photos.length - 1, 0));
   useEffect(() => { if (currentUser?.profile?.role === 'client' && listing.isSuccess && listingId) { void apiRequest(`/client/discovery/views/${encodeURIComponent(listingId)}`, { method: 'POST' }).then(() => cache.invalidateQueries({ queryKey: discoveryKey })).catch(() => {}); } }, [currentUser?.id, currentUser?.profile?.role, listing.isSuccess, listingId, cache]);
@@ -26,6 +27,7 @@ export default function ListingDetail() {
     <Link to="/services" className="text-sm text-emerald-300 hover:underline">← All services</Link>
     {listing.isPending && <p role="status" className="mt-6">Loading listing…</p>}
     {listing.isError && <p role="alert" className="mt-6 text-red-300">{listing.error.message}</p>}
+    {!accountLoading && listing.data && !service && <p className="mt-6 text-emerald-300">Service not found.</p>}
     {service && <article className="mt-5 grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
       <section aria-label="Listing photos" className="listing-detail__gallery min-w-0">
         {photos.length ? <>
@@ -39,6 +41,7 @@ export default function ListingDetail() {
         <p className="text-sm font-semibold text-emerald-300">{categoryLabel(service.category)} · {service.location}</p>
         <h1 className="mt-3 break-words text-4xl">{service.title}</h1>
         <p className="mt-3 text-home-text"><Link className="underline hover:text-emerald-300" to={`/providers/${encodeURIComponent(service.providerId)}`}>{service.providerName}</Link></p>
+        <PresenceStatus userId={service.providerId} />
         {service.verificationTier !== 'Basic' && <p className="mt-2 text-sm font-semibold text-emerald-300">✓ {service.verificationTier === 'BusinessVerified' ? 'Business verified' : 'Identity verified'} provider</p>}
         {service.description && <p className="mt-5 whitespace-pre-line text-home-text">{service.description}</p>}
         <div className="mt-4"><FavoriteButton kind="listings" id={service.id} /></div>

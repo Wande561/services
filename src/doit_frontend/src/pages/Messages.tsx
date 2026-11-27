@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AppContext';
+import PresenceStatus from '../components/PresenceStatus';
 import { accountHome } from '../utils/accountRoutes';
 import { bookingHistoryPath, conversations, formatInboxTime, inboxKey, messagePath, messageThread, readMessages, sendMessage } from '../utils/inbox';
 
@@ -55,6 +56,7 @@ function ConversationPanel({ accountId, bookingId }: { accountId: string; bookin
         <>
           <header className="border-b border-gray-700 p-4">
             <h2 className="break-words text-lg font-semibold">{openingPage.contactName}</h2>
+            <PresenceStatus userId={openingPage.contactId} />
             <Link to={bookingHistoryPath(bookingId)}
               className="break-words text-sm text-orange-300 hover:underline">{openingPage.serviceTitle}</Link>
           </header>
@@ -131,6 +133,7 @@ export default function Messages() {
                       {thread.unread > 0 && <span className="shrink-0 text-xs text-orange-200">{thread.unread} unread</span>}
                     </div>
                     <p className="truncate text-sm text-gray-300">{thread.serviceTitle}</p>
+                    <PresenceStatus userId={thread.contactId} />
                     <p className="mt-1 truncate text-xs text-gray-400">{thread.latest.kind === 'message' && thread.latest.mine ? 'You: ' : ''}{thread.latest.body}{thread.closed ? ' · Closed' : ''}</p>
                   </Link>
                 </li>

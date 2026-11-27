@@ -16,6 +16,7 @@ model User {
   isSuspended Boolean @default(false)
   name         String?
   createdAt    DateTime  @default(now())
+  lastSeenAt   DateTime? @db.Timestamptz(3)
   sessions     Session[]
   passwordResetTokens PasswordResetToken[]
   profile      Profile?
@@ -75,8 +76,10 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+  lastActiveAt DateTime? @db.Timestamptz(3)
 
   @@index([userId])
+  @@index([userId, lastActiveAt])
 }
 
 enum AccountRole {
