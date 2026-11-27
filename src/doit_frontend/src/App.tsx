@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AppContext';
 import { PresenceProvider } from './contexts/PresenceContext';
 import Home from './pages/Home';
 import SiteNavbar from './components/SiteNavbar';
+import SupportAssistant from './components/SupportAssistant';
 import FormFeedback from './components/FormFeedback';
 import SignIn from './pages/SignIn';
 import ForgotPassword from './pages/ForgotPassword';
@@ -56,6 +57,7 @@ function RequireProfile({ role }: { role?: AccountRole }) {
 
 function AppRoutes() {
   const { pathname } = useLocation();
+  const { currentUser } = useAuth();
   const page = pathname === '/' ? 'home' : pathname === '/provider-dashboard/hours' ? 'hours' : pathname === '/settings' ? 'settings' : pathname.split('/').filter(Boolean)[0] || 'home';
   return <FormFeedback><div className={pathname === '/' ? undefined : 'app-theme'}>{pathname !== '/' && <SiteNavbar />}<div className={`page-stage min-w-0 ${pathname === '/' ? '' : 'md:pl-64'}`} data-page={page}><Routes>
             <Route path="/" element={<Home />} />
@@ -94,7 +96,7 @@ function AppRoutes() {
               <Route path="/provider-dashboard/hours" element={<WorkingHours />} />
               <Route path="/provider-dashboard/availability" element={<Navigate to="/provider-dashboard/hours" replace />} />
             </Route>
-          </Routes></div></div></FormFeedback>;
+          </Routes></div>{(currentUser?.profile?.role === 'client' || currentUser?.profile?.role === 'provider') && <SupportAssistant role={currentUser.profile.role} visible={pathname === '/dashboard' || pathname === '/provider-dashboard'} />}</div></FormFeedback>;
 }
 
 export default function App() {

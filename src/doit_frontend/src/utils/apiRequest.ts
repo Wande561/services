@@ -4,6 +4,13 @@ interface RequestOptions {
   signal?: AbortSignal;
 }
 
+export class ApiRequestError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
+}
+
 export async function apiRequest<T>(path: string, { method = 'GET', data, signal }: RequestOptions = {}): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method,
@@ -14,7 +21,7 @@ export async function apiRequest<T>(path: string, { method = 'GET', data, signal
   });
   if (!response.ok) {
     const result = await response.json().catch(() => ({}));
-    throw new Error(result.message || 'Unable to contact the server');
+    throw new ApiRequestError(result.message || 'Unable to contact the server', response.status);
   }
   return response.json();
 }
