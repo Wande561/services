@@ -8,7 +8,37 @@ For Google sign-in, configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `F
 
 Password recovery uses Resend. Configure `RESEND_API_KEY` and a verified sender address in `MAIL_FROM`; reset links are sent to `FRONTEND_URL/reset-password` and expire after 30 minutes. Without these settings, reset requests still return a neutral response but no email is delivered.
 
+File uploads use a private Cloudflare R2 bucket through its S3-compatible API. Configure `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`. Local development without R2 credentials continues to store files in PostgreSQL; production file uploads fail with a service-unavailable response until R2 is configured. See the repository's `DEPLOYMENT.md` for the reviewed migration and legacy-file backfill order.
+
 The API exposes `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, and `GET /auth/google`. The register and login endpoints accept JSON and return the signed-in user with an HTTP-only session cookie. Requests that change state must include the configured frontend origin.
+
+## AI assistants
+
+AI requests go from the React app to NestJS. The frontend never receives provider credentials or calls a provider. The AI module does not inject Prisma or access the database. Support answers use role-filtered, approved knowledge only; future user data must be retrieved through existing authorized backend services using the identity from the authenticated session.
+
+### Support Assistant
+
+`POST /api/ai/support/chat` (NestJS route `POST /ai/support/chat`) requires an authenticated client or provider session and the configured frontend origin. Send `{ "message": "...", "conversationId": "optional UUID" }`. Messages must contain 1–2,000 characters. The response is `{ "conversationId": "UUID", "answer": "..." }`. The server creates the conversation ID on the first request. User IDs and roles are not accepted in the body. The authenticated role is resolved server-side and selects which knowledge articles are supplied to the model.
+
+Conversation history is held in API process memory for up to two hours after the last request and limited to six user/assistant turns. It is not written to PostgreSQL or application logs. A conversation ID is bound to both the authenticated user and their active role; another user or a switched role cannot use it. History is lost on API restart and is not shared across API instances, so users should start a new conversation if the server changes. The React dashboard exposes AI Support to clients and providers.
+
+The verified support knowledge is organized by topic and role in `src/ai/support/support-knowledge.service.ts`. It covers accounts and settings, role-specific verification, finding or managing services, client and provider quote steps, bookings and cancellations, messages, direct payments, and Complaints & Support. To update it, first verify the wording against the current API implementation and frontend behavior, then edit the relevant role-scoped article and its retrieval keywords. Unsupported questions receive a fallback without calling the AI provider. The prompt and safety rules are in `src/ai/support/support.prompt.ts`.
+
+The shared provider client is implemented in `src/ai/providers/ai-provider.client.ts`. It supports OpenAI and Anthropic using server-side `AI_PROVIDER`, the matching API key, and model setting. Configuration is checked only when an answer needs a provider call, so missing keys do not prevent unrelated API functionality from starting. Provider errors, timeouts, and incomplete configuration return a friendly retry message; upstream error bodies and credentials are not exposed. The client has no tools or database connection and cannot perform account, booking, quote, or payment actions.
+
+### Provider Assistant
+
+`POST /api/ai/provider` (NestJS route `POST /ai/provider`) requires an authenticated provider session and the configured frontend origin. It accepts the same message and optional conversation ID shape as AI Support and returns `{ "conversationId": "UUID", "answer": "..." }`. The provider identity comes only from the authenticated session; request bodies cannot supply provider IDs or roles. The route uses the existing AI session, role, rate-limit, provider-client, usage-monitor, token, and timeout protections.
+
+The assistant supports daily and weekly workload summaries, provider booking requests and appointments, quote request and expiry summaries, notification summaries, and reviewable quote/message drafts. It does not accept, reject, cancel, reschedule, submit, change notification state, or send client messages. Generated drafts are text for the provider to review and use through the existing Quotes or Messages screens. The prompt explicitly prevents final price suggestions and treats retrieved record text as untrusted content.
+
+`src/ai/provider/provider-data.service.ts` chooses the needed data category from the provider's question. It does not access Prisma. It calls read-only assistant methods added to the existing `BookingsService`, `QuotesService`, `NotificationsService`, `MessagesService`, and `ProvidersService`. Each method scopes reads to the authenticated provider ID in its database query. Message context is loaded only for draft requests and only after the existing message service verifies quote or booking ownership. Client names, addresses, bank details, and quote amounts are not included; client text is length-limited and email/phone patterns are removed before it reaches the model. Notification reads do not create preferences or mark records as read.
+
+Booking status counts use the stored `Pending`, `Confirmed`, `Declined`, `Cancelled`, and `Completed` values. Quote status counts use the stored `Pending`, `Quoted`, `Accepted`, `Declined`, `RevisionRequested`, `DepositPending`, and `SlotUnavailable` values. A quote is considered expired only from its latest version's `expiresAt` timestamp; no `Expired` database status is invented. Appointment windows use Africa/Johannesburg (SAST, UTC+02:00), and results sent to the model are capped to recent relevant records.
+
+Provider Assistant conversations are held in a separate API-memory store from AI Support, are bound to one provider ID, expire after two hours idle, and retain at most six user/assistant turns. As with support conversations and rate limits, this in-memory state is not shared across API instances. No database migration or new provider credential is required.
+
+`AI_RATE_LIMIT_MAX` and `AI_RATE_LIMIT_WINDOW_MS` set the default per-user/per-endpoint limit (10 requests per 60,000 ms). `AI_MAX_OUTPUT_TOKENS`, `AI_REQUEST_TIMEOUT_MS`, and `AI_CONVERSATION_HISTORY_TURNS` control response length, request timeout, and context size. `AiUsageMonitor` records user ID, endpoint, timestamp, provider, outcome, and token usage when returned; it does not accept or log conversation text. The rate limiter and conversations are in memory, so deployments with multiple API instances should move these to shared storage before production use.
 
 `PATCH /auth/profile` updates the signed-in user’s name, phone, location, and provider business name and categories. `POST /auth/password` verifies the current password, changes it, and signs out other sessions. Google-only accounts cannot change their password here. Both endpoints require the configured frontend origin.
 

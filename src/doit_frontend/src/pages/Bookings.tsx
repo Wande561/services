@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FormEvent } from 'react';
+import { CalendarDays } from 'lucide-react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import BookingSummary from '../components/BookingSummary';
 import HistoryCard from '../components/HistoryCard';
@@ -106,7 +107,7 @@ export default function Bookings() {
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <Link to={accountHome(role)} className="text-sm text-orange-300 hover:underline">← Dashboard</Link>
-            <p className="workspace-eyebrow">YOUR WORKSPACE / APPOINTMENTS</p><h1 className="mt-2 text-3xl font-bold">{role === 'provider' ? 'Bookings' : 'My bookings'}</h1><p className="mt-2 text-sm text-emerald-300">All your appointments, in one place.</p>
+            <p className="workspace-eyebrow">YOUR WORKSPACE / APPOINTMENTS</p><h1 className="mt-2 text-3xl font-bold">{role === 'provider' ? 'Bookings' : 'My bookings'}</h1><p className="bookings-intro"><CalendarDays aria-hidden="true" /><span>All your appointments, <em>in one place.</em></span></p>
           </div>
           {selectedBooking ? <Link to="/bookings" className="btn-secondary">All bookings</Link> : role === 'provider'
             ? <Link to="/provider-dashboard/hours" className="btn-secondary">Working hours</Link>

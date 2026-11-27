@@ -5,6 +5,7 @@ import { PrismaService } from './prisma.service';
 import { requiredText } from './request-validation';
 import { calculateQuotation } from './quote-calculation';
 import { lockProfiles } from './bookings.service';
+import { ObjectStorageService } from './object-storage.service';
 
 const selection = {
   id: true, clientId: true, providerId: true, listingId: true, description: true, preferredAt: true,
@@ -50,7 +51,7 @@ function photos(value: unknown) {
 
 @Injectable()
 export class QuotesService {
-  constructor(private readonly db: PrismaService) {}
+  constructor(private readonly db: PrismaService, private readonly storage: ObjectStorageService) {}
   private async withClientRatings(requests: Prisma.QuoteRequestGetPayload<{ select: typeof selection }>[]) {
     const ids = [...new Set(requests.map(request => request.clientId))];
     if (!ids.length) return [];
@@ -61,6 +62,54 @@ export class QuotesService {
   async list(id: string, role: AccountRole) {
     const requests = await this.db.quoteRequest.findMany({ where: role === 'client' ? { clientId: id } : { providerId: id }, select: selection, orderBy: { createdAt: 'desc' } });
     return role === 'provider' ? this.withClientRatings(requests) : requests;
+  }
+
+  /** Read-only quote summaries; providerId is always included in every query. */
+  async assistantSummary(providerId: string, now = new Date(), horizon = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)) {
+    const [statusGroups, attentionRows, recentRequests, alerts] = await Promise.all([
+      this.db.quoteRequest.groupBy({ by: ['status'], where: { providerId }, _count: { _all: true } }),
+      this.db.quoteRequest.findMany({
+        where: { providerId, OR: [
+          { status: { in: ['Pending', 'RevisionRequested', 'DepositPending', 'SlotUnavailable'] } },
+          { status: 'Quoted', versions: { some: { expiresAt: { lte: horizon } } } },
+        ] },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: 30,
+        select: { id: true, status: true, description: true, preferredAt: true, additionalInfo: true, changeRequest: true, createdAt: true, updatedAt: true, listing: { select: { title: true } }, versions: { orderBy: [{ version: 'desc' }], take: 1, select: { version: true, serviceDescription: true, durationMinutes: true, appointmentAt: true, expiresAt: true, notes: true, depositRequired: true } } },
+      }),
+      this.db.quoteRequest.findMany({
+        where: { providerId }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: 6,
+        select: { id: true, status: true, description: true, preferredAt: true, additionalInfo: true, changeRequest: true, createdAt: true, updatedAt: true, listing: { select: { title: true } }, versions: { orderBy: [{ version: 'desc' }], take: 1, select: { version: true, serviceDescription: true, durationMinutes: true, appointmentAt: true, expiresAt: true, notes: true, depositRequired: true } } },
+      }),
+      this.db.quoteAlert.findMany({
+        where: { recipientId: providerId, request: { providerId } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 10,
+        select: { id: true, requestId: true, message: true, createdAt: true, readAt: true, request: { select: { status: true, listing: { select: { title: true } } } } },
+      }),
+    ]);
+    const summarize = (row: typeof attentionRows[number]) => {
+      const version = row.versions[0];
+      const isExpired = row.status === 'Quoted' && !!version && version.expiresAt <= now;
+      return {
+        id: row.id, status: row.status, service: row.listing.title,
+        description: row.description.slice(0, 1000), preferredAt: row.preferredAt,
+        additionalInfo: row.additionalInfo?.slice(0, 500) ?? null,
+        changeRequest: row.changeRequest?.slice(0, 500) ?? null,
+        createdAt: row.createdAt, updatedAt: row.updatedAt,
+        latestQuote: version ? {
+          version: version.version, serviceDescription: version.serviceDescription.slice(0, 700),
+          durationMinutes: version.durationMinutes, appointmentAt: version.appointmentAt,
+          expiresAt: version.expiresAt, notes: version.notes?.slice(0, 400) ?? null,
+          depositRequired: version.depositRequired,
+          expiryState: isExpired ? 'expired_by_timestamp' : row.status === 'Quoted' ? 'currently_quoted' : 'not_applicable',
+        } : null,
+      };
+    };
+    const attention = attentionRows.filter(row => row.status !== 'Quoted' || (row.versions[0] && row.versions[0].expiresAt <= horizon)).slice(0, 10).map(summarize);
+    return {
+      statusCounts: Object.fromEntries(statusGroups.map(row => [row.status, row._count._all])),
+      attention,
+      recentRequests: recentRequests.map(summarize),
+      alerts: alerts.map(alert => ({ id: alert.id, requestId: alert.requestId, message: alert.message.slice(0, 300), createdAt: alert.createdAt, unread: alert.readAt === null, status: alert.request.status, service: alert.request.listing.title })),
+    };
   }
   async get(id: string, role: AccountRole, requestId: string) {
     const result = await this.db.quoteRequest.findFirst({ where: { id: requestId, ...(role === 'client' ? { clientId: id } : { providerId: id }) }, select: selection });
@@ -81,23 +130,38 @@ export class QuotesService {
     const additionalInfo = optional(body?.additionalInfo, 'additional information', 1000);
     const images = photos(body?.photos);
     const referencePhotoId = body?.referencePhotoId == null || body.referencePhotoId === '' ? null : requiredText(body.referencePhotoId, 'a listing photo', 128);
-    return this.db.$transaction(async tx => {
-      for (const userId of [clientId, listing.providerId].sort()) await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
-      await assertCanStart(tx, clientId);
-      await assertCanBook(tx, [listing.providerId]);
-      const reference = referencePhotoId ? await tx.listingPhoto.findFirst({ where: { id: referencePhotoId, listingId, listing: { isPublished: true } }, select: { image: true, mimeType: true } }) : null;
-      if (referencePhotoId && !reference) throw new BadRequestException('This listing photo is no longer available. Choose another or continue without one.');
-      const requestPhotos = [...images, ...(reference ? [{ mimeType: reference.mimeType, data: reference.image, isListingReference: true }] : [])];
-      const request = await tx.quoteRequest.create({ data: { clientId, providerId: listing.providerId, listingId, description, location, preferredAt, additionalInfo, photos: { create: requestPhotos } }, select: selection });
-      await tx.quoteAlert.createMany({ data: [{ recipientId: listing.providerId, requestId: request.id, message: 'A client sent you a quote request.' }, { recipientId: clientId, requestId: request.id, message: 'Your quote request was sent.' }] });
-      return request;
-    });
+    const reference = referencePhotoId ? await this.db.listingPhoto.findFirst({ where: { id: referencePhotoId, listingId, listing: { isPublished: true } }, select: { image: true, storageKey: true, mimeType: true } }) : null;
+    if (referencePhotoId && !reference) throw new BadRequestException('This listing photo is no longer available. Choose another or continue without one.');
+    const requestPhotos: Array<{ mimeType: string; data: Buffer | null; storageKey: string | null; isListingReference: boolean }> = [];
+    try {
+      for (const image of images) {
+        const file = await this.storage.store('quote', image.mimeType, image.data);
+        requestPhotos.push({ mimeType: image.mimeType, data: file.legacyData, storageKey: file.storageKey, isListingReference: false });
+      }
+      if (reference) {
+        const bytes = await this.storage.read(reference.storageKey, reference.image, 'Listing photo');
+        const file = await this.storage.store('quote', reference.mimeType, bytes);
+        requestPhotos.push({ mimeType: reference.mimeType, data: file.legacyData, storageKey: file.storageKey, isListingReference: true });
+      }
+      return await this.db.$transaction(async tx => {
+        for (const userId of [clientId, listing.providerId].sort()) await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+        await assertCanStart(tx, clientId);
+        await assertCanBook(tx, [listing.providerId]);
+        if (referencePhotoId && !await tx.listingPhoto.findFirst({ where: { id: referencePhotoId, listingId, listing: { isPublished: true } }, select: { id: true } })) throw new BadRequestException('This listing photo is no longer available. Choose another or continue without one.');
+        const request = await tx.quoteRequest.create({ data: { clientId, providerId: listing.providerId, listingId, description, location, preferredAt, additionalInfo, photos: { create: requestPhotos } }, select: selection });
+        await tx.quoteAlert.createMany({ data: [{ recipientId: listing.providerId, requestId: request.id, message: 'A client sent you a quote request.' }, { recipientId: clientId, requestId: request.id, message: 'Your quote request was sent.' }] });
+        return request;
+      });
+    } catch (error) {
+      await this.storage.deleteMany(requestPhotos.map(photo => photo.storageKey)).catch(() => undefined);
+      throw error;
+    }
   }
   async photo(id: string, role: AccountRole, requestId: string, photoId: string) {
     await this.get(id, role, requestId);
-    const image = await this.db.quotePhoto.findFirst({ where: { id: photoId, requestId } });
+    const image = await this.db.quotePhoto.findFirst({ where: { id: photoId, requestId }, select: { data: true, storageKey: true, mimeType: true } });
     if (!image) throw new NotFoundException('Photo not found');
-    return image;
+    return { mimeType: image.mimeType, data: await this.storage.read(image.storageKey, image.data, 'Photo') };
   }
   async withdraw(clientId: string, requestId: string) {
     return this.db.$transaction(async tx => {

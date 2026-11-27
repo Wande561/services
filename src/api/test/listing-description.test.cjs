@@ -14,8 +14,12 @@ test('new listings can be created without a description', async () => {
 
 test('editing without a description leaves existing descriptions unchanged', async () => {
   let data;
-  const tx = { serviceListing: { findFirst: async () => ({ photos: [] }), update: async args => { data = args.data; return result; } } };
-  const service = new ServicesService({ $transaction: async run => run(tx) });
+  const tx = { serviceListing: { findFirst: async () => ({ photos: [] }), update: async args => { data = args.data; return { ...result, photos: [] }; } } };
+  const db = {
+    serviceListing: { findFirst: async () => ({ photos: [] }) },
+    $transaction: async run => run(tx),
+  };
+  const service = new ServicesService(db, { deleteMany: async () => {}, store: async () => {}, read: async () => {} });
   await service.update('provider', 'one', listing);
   assert.equal(data.description, undefined);
 });

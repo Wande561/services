@@ -3,6 +3,7 @@ import { AccountRole, Prisma, ServiceCategory } from '@prisma/client';
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
 import { OAuth2Client } from 'google-auth-library';
+import { MailService } from './mail.service';
 import { PrismaService } from './prisma.service';
 import { requiredText } from './request-validation';
 
@@ -34,7 +35,7 @@ export interface OnboardingInput {
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly db: PrismaService) {}
+  constructor(private readonly db: PrismaService, private readonly mail: MailService = new MailService()) {}
 
   private normalizeEmail(email: unknown): string {
     if (typeof email !== 'string' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -78,7 +79,7 @@ export class AuthService {
   async requestPasswordReset(email: unknown) {
     const normalized = this.normalizeEmail(email);
     const user = await this.db.user.findUnique({ where: { email: normalized }, select: { id: true, email: true, passwordHash: true, name: true } });
-    const emailConfigured = Boolean(process.env.RESEND_API_KEY?.trim() && process.env.MAIL_FROM?.trim());
+    const emailConfigured = this.mail.isConfigured();
     if (!user?.passwordHash) return { success: true, emailConfigured };
 
     const rawToken = randomBytes(32).toString('base64url');
@@ -92,29 +93,13 @@ export class AuthService {
   }
 
   private async sendPasswordResetEmail(email: string, name: string | null, token: string) {
-    const apiKey = process.env.RESEND_API_KEY?.trim();
-    const from = process.env.MAIL_FROM?.trim();
-    if (!apiKey || !from) {
-      console.warn('Password reset email not sent: configure RESEND_API_KEY and MAIL_FROM.');
-      return;
-    }
     const resetUrl = new URL('/reset-password', process.env.FRONTEND_URL || 'http://localhost:3000');
     resetUrl.searchParams.set('token', token);
-    try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from,
-          to: [email],
-          subject: 'Reset your ServiceConnect password',
-          text: `Hi ${name?.trim() || 'there'},\n\nUse this link to choose a new password. It expires in 30 minutes and can only be used once.\n\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
-        }),
-      });
-      if (!response.ok) console.error(`Password reset email provider returned ${response.status}.`);
-    } catch {
-      console.error('Password reset email could not be delivered.');
-    }
+    await this.mail.send({
+      to: email,
+      subject: 'Reset your ServiceConnect password',
+      text: `Hi ${name?.trim() || 'there'},\n\nUse this link to choose a new password. It expires in 30 minutes and can only be used once.\n\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+    });
   }
 
   async resetPassword(token: unknown, newPassword: unknown) {

@@ -17,7 +17,8 @@ export default function ServiceListingCard({ listing, bookable = false, appearan
   if (currentUser?.profile?.role === 'client' && listing.providerId === currentUser.id) return null;
   const href = `/services/${encodeURIComponent(listing.id)}`;
   const image = listing.photos?.[0];
-  const cover = image ? <img src={`/api/services/photos/${encodeURIComponent(image.id)}`} alt={`${listing.title} service`} loading="lazy" /> : <span className="listing-card__placeholder"><Sparkles aria-hidden="true" /><span>ServiceConnect</span></span>;
+  const photoUrl = image ? `/api/services/photos/${encodeURIComponent(image.id)}` : '';
+  const cover = image ? <><img className="listing-card__backdrop" src={photoUrl} alt="" aria-hidden="true" loading="lazy" /><img className="listing-card__image" src={photoUrl} alt={`${listing.title} service`} loading="lazy" /></> : <span className="listing-card__placeholder"><Sparkles aria-hidden="true" /><span>ServiceConnect</span><small>LOCAL SERVICES, CONNECTED</small></span>;
   return <article className={`listing-card listing-card--${appearance}`}>
     {listing.isPublished ? <Link to={href} className="listing-card__cover" aria-label={`View ${listing.title}`}>{cover}{listing.photos?.length > 1 && <span className="listing-card__photos">+ {listing.photos.length - 1} photos</span>}</Link> : <div className="listing-card__cover">{cover}</div>}
     <div className="listing-card__body"><div className="listing-card__meta"><span>{categoryLabel(listing.category)}</span><span><MapPin aria-hidden="true" />{listing.location}</span></div>
@@ -26,6 +27,7 @@ export default function ServiceListingCard({ listing, bookable = false, appearan
       {listing.isPublished && <PresenceStatus userId={listing.providerId} />}
       {listing.verificationTier && listing.verificationTier !== 'Basic' && <span className="listing-card__verified"><ShieldCheck aria-hidden="true" />{listing.verificationTier === 'IdentityVerified' ? 'Identity verified' : 'Business verified'}</span>}
       {listing.averageRating != null && <p className="mt-2 text-sm text-emerald-300">★ {listing.averageRating.toFixed(1)} <span className="text-emerald-300/70">average rating · {listing.reviewCount} {listing.reviewCount === 1 ? 'review' : 'reviews'}</span></p>}
+      {listing.isPublished && listing.averageRating == null && <p className="mt-2 text-sm text-emerald-300/70">New provider · no reviews yet</p>}
       {listing.description && <p className="listing-card__description">{listing.description}</p>}
       <div className="listing-card__price"><span>STARTING FROM</span><strong>{formatListingPrice(listing)}</strong></div>
       {(bookable || listing.isPublished) && <div className="listing-card__actions">{bookable && <Link to={bookingPath(listing.id)} className="listing-card__quote">Request a quote <ArrowUpRight aria-hidden="true" /></Link>}{listing.isPublished && <Link to={reviewsPath(listing.id)} className="listing-card__reviews">{listing.reviewCount ? `${listing.reviewCount} ${listing.reviewCount === 1 ? 'review' : 'reviews'}` : 'Reviews'}</Link>}</div>}

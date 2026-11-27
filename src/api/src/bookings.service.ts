@@ -151,6 +151,34 @@ export class BookingsService {
     return bookings.map(formatBooking);
   }
 
+  /** Read-only, provider-scoped data for assistant summaries. */
+  async assistantSummary(providerId: string, from: Date, to: Date, now = new Date()) {
+    const providerScope = { slot: { providerId } };
+    const [statusGroups, pendingRequests, appointments, recentUpdates] = await Promise.all([
+      this.db.booking.groupBy({ by: ['status'], where: providerScope, _count: { _all: true } }),
+      this.db.booking.findMany({
+        where: { ...providerScope, status: 'Pending' }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 8,
+        select: { id: true, serviceTitle: true, notes: true, status: true, createdAt: true, updatedAt: true, slot: { select: { startsAt: true, endsAt: true } } },
+      }),
+      this.db.booking.findMany({
+        where: { ...providerScope, status: { in: ['Pending', 'Confirmed'] }, slot: { providerId, startsAt: { gte: from, lt: to } } },
+        orderBy: [{ slot: { startsAt: 'asc' } }, { id: 'asc' }], take: 12,
+        select: { id: true, serviceTitle: true, status: true, createdAt: true, updatedAt: true, slot: { select: { startsAt: true, endsAt: true } } },
+      }),
+      this.db.booking.findMany({
+        where: { ...providerScope, updatedAt: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) } },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: 6,
+        select: { id: true, serviceTitle: true, status: true, updatedAt: true, slot: { select: { startsAt: true } } },
+      }),
+    ]);
+    return {
+      statusCounts: Object.fromEntries(statusGroups.map(row => [row.status, row._count._all])),
+      pendingRequests,
+      appointments,
+      recentUpdates,
+    };
+  }
+
   async request(clientId: string, input?: Record<string, unknown>) {
     const listingId = requiredText(input?.listingId, 'a service listing', 128);
     const slotId = requiredText(input?.slotId, 'an available slot', 128);

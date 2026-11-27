@@ -23,6 +23,17 @@ export class ProvidersService {
     return { workingHours: profile.workingHours };
   }
 
+  /** Minimal provider-owned profile and service context for the Provider Assistant. */
+  async assistantProfile(providerId: string) {
+    return this.db.profile.findFirst({
+      where: { userId: providerId, providerEnabled: true },
+      select: {
+        businessName: true, location: true, serviceCategories: true, otherService: true, workingHours: true,
+        listings: { orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: 6, select: { title: true, description: true, category: true, isPublished: true } },
+      },
+    });
+  }
+
   async updateHours(id: string, input: unknown) {
     if (!Array.isArray(input) || input.length !== 7) throw new BadRequestException('Set working hours for all seven days');
     const days = new Set<number>();

@@ -112,6 +112,24 @@ export class MessagesService {
     return { ...details(group, role), items, nextCursor: all.length > pageSize ? Buffer.from(JSON.stringify({ id: last.id, date: last.createdAt.toISOString() })).toString('base64url') : null };
   }
 
+  /** Read at most three messages from up to three conversations already owned by this provider. */
+  async assistantRecentContext(accountId: string, referencesToLoad: Array<{ kind: 'booking' | 'quote'; id: string }>) {
+    const limited = referencesToLoad.slice(0, 3);
+    return Promise.all(limited.map(async reference => {
+      const threadId = reference.kind === 'quote' ? `q:${reference.id}` : reference.id;
+      const group = await this.related(accountId, AccountRole.provider, threadId);
+      const messages = await this.db.message.findMany({
+        where: { OR: references(group) }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 3,
+        select: { senderId: true, body: true, createdAt: true },
+      });
+      return {
+        referenceId: reference.id,
+        kind: reference.kind,
+        messages: messages.reverse().map(item => ({ speaker: item.senderId === accountId ? 'provider' : 'client', body: item.body.slice(0, 700), createdAt: item.createdAt })),
+      };
+    }));
+  }
+
   async send(accountId: string, role: AccountRole, bookingId: string, value: unknown) {
     const body = requiredText(value, 'a message', 2000);
     const group = await this.related(accountId, role, bookingId);

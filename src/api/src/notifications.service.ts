@@ -1,18 +1,19 @@
 import { Injectable, NotFoundException, OnModuleDestroy, OnModuleInit, BadRequestException } from '@nestjs/common';
 import { AccountRole, Prisma } from '@prisma/client';
 import { bookingOwnership } from './booking-ownership';
+import { MailService } from './mail.service';
 import { PrismaService } from './prisma.service';
 import { requiredText } from './request-validation';
 
 const pageSize = 30;
 
-const preferenceKeys = ['bookingUpdates', 'messages', 'reviews', 'payments', 'appointmentReminders', 'quoteReminders'] as const;
+const preferenceKeys = ['bookingUpdates', 'messages', 'reviews', 'payments', 'appointmentReminders', 'quoteReminders', 'emailReminders'] as const;
 type PreferenceKey = typeof preferenceKeys[number];
 
 @Injectable()
 export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   private reminderTimer?: ReturnType<typeof setInterval>;
-  constructor(private readonly db: PrismaService) {}
+  constructor(private readonly db: PrismaService, private readonly mail: MailService = new MailService()) {}
 
   onModuleInit() {
     void this.sendUpcomingReminders();
@@ -61,28 +62,61 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
         if (!version || version.expiresAt > deadline || version.expiresAt <= now) continue;
         const pref = await this.db.notificationPreference.findUnique({ where: { userId: quote.clientId }, select: { quoteReminders: true } });
         if (pref?.quoteReminders === false) continue;
-        await this.db.quoteAlert.createMany({
+        const inserted = await this.db.quoteAlert.createMany({
           data: [{ recipientId: quote.clientId, requestId: quote.id, message: `Your quotation for ${quote.listing.title} expires within 24 hours.`, dedupeKey: `quote-expiry:${quote.id}:${version.id}` }],
           skipDuplicates: true,
         });
+        if (inserted.count) {
+          await this.emailReminder(quote.clientId, 'Your quotation expires soon', `Your quotation for ${quote.listing.title} expires on ${this.formatReminderTime(version.expiresAt)}.`, `/quotes?request=${encodeURIComponent(quote.id)}`);
+        }
       }
       const upcoming = await this.db.booking.findMany({
         where: { status: 'Confirmed', slot: { startsAt: { gt: now, lte: deadline } } },
-        select: { id: true, clientId: true, listing: { select: { providerId: true } } },
+        select: { id: true, clientId: true, serviceTitle: true, listing: { select: { providerId: true } }, slot: { select: { startsAt: true } } },
       });
       for (const booking of upcoming) {
         const recipients = [...new Set([booking.clientId, booking.listing.providerId])];
         const prefs = await this.db.notificationPreference.findMany({ where: { userId: { in: recipients } }, select: { userId: true, appointmentReminders: true } });
         const optedOut = new Set(prefs.filter(pref => !pref.appointmentReminders).map(pref => pref.userId));
-        const data = recipients.filter(id => !optedOut.has(id)).map(recipientId => ({
-          recipientId, bookingId: booking.id, kind: 'AppointmentReminder' as const,
-          dedupeKey: `appointment-reminder:${booking.id}:${recipientId}`,
-        }));
-        if (data.length) await this.db.notification.createMany({ data, skipDuplicates: true });
+        for (const recipientId of recipients.filter(id => !optedOut.has(id))) {
+          try {
+            await this.db.notification.create({
+              data: {
+                recipientId, bookingId: booking.id, kind: 'AppointmentReminder',
+                dedupeKey: `appointment-reminder:${booking.id}:${recipientId}`,
+              },
+            });
+          } catch (error) {
+            if ((error as { code?: string }).code === 'P2002') continue;
+            throw error;
+          }
+          await this.emailReminder(recipientId, 'Appointment reminder', `Your ServiceConnect appointment for ${booking.serviceTitle} is coming up on ${this.formatReminderTime(booking.slot.startsAt)}.`, '/bookings');
+        }
       }
     } catch (error) {
       console.error('Scheduled reminder job failed.', error);
     }
+  }
+
+  private formatReminderTime(value: Date) {
+    const formatted = new Intl.DateTimeFormat('en-ZA', {
+      timeZone: 'Africa/Johannesburg', dateStyle: 'medium', timeStyle: 'short', hourCycle: 'h23',
+    }).format(value);
+    return `${formatted} SAST`;
+  }
+
+  private async emailReminder(userId: string, subject: string, message: string, path: string) {
+    const user = await this.db.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true, notificationPreference: { select: { emailReminders: true } } },
+    });
+    if (!user?.email || user.notificationPreference?.emailReminders === false) return;
+    const url = new URL(path, process.env.FRONTEND_URL || 'http://localhost:3000');
+    await this.mail.send({
+      to: user.email,
+      subject: `ServiceConnect: ${subject}`,
+      text: `Hi ${user.name?.trim() || 'there'},\n\n${message}\n\n${url}\n\nYou can change reminder emails in Settings.`,
+    });
   }
 
   async unread(accountId: string, role: AccountRole) {
@@ -121,6 +155,24 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       ...record, serviceTitle: booking?.serviceTitle ?? quoteRequest?.listing.title ?? 'Service', read: readAt !== null,
     }));
     return { items, nextCursor: records.length > pageSize ? items[pageSize - 1].id : null };
+  }
+
+  /** Read-only assistant notification context. Does not create preferences or mark items read. */
+  async assistantSummary(recipientId: string) {
+    const [rows, quoteAlerts] = await Promise.all([
+      this.db.notification.findMany({
+        where: { recipientId }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 12,
+        select: { id: true, kind: true, bookingStatus: true, createdAt: true, readAt: true, booking: { select: { serviceTitle: true } }, quoteRequest: { select: { listing: { select: { title: true } }, status: true } } },
+      }),
+      this.db.quoteAlert.findMany({
+        where: { recipientId, request: { providerId: recipientId } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 10,
+        select: { id: true, message: true, createdAt: true, readAt: true, request: { select: { id: true, status: true, listing: { select: { title: true } } } } },
+      }),
+    ]);
+    return {
+      notifications: rows.map(row => ({ id: row.id, kind: row.kind, bookingStatus: row.bookingStatus, createdAt: row.createdAt, unread: row.readAt === null, service: row.booking?.serviceTitle ?? row.quoteRequest?.listing.title ?? 'Service', quoteStatus: row.quoteRequest?.status ?? null })),
+      quoteAlerts: quoteAlerts.map(alert => ({ id: alert.id, requestId: alert.request.id, message: alert.message.slice(0, 300), createdAt: alert.createdAt, unread: alert.readAt === null, status: alert.request.status, service: alert.request.listing.title })),
+    };
   }
 
   async markRead(recipientId: string, id: string) {

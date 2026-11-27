@@ -28,9 +28,9 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        home: ['Manrope', 'system-ui', 'sans-serif'],
-        editorial: ['Instrument Serif', 'Georgia', 'serif'],
+        sans: ['Source Sans 3', 'system-ui', 'sans-serif'],
+        home: ['Source Sans 3', 'Manrope', 'system-ui', 'sans-serif'],
+        editorial: ['Alegreya', 'Georgia', 'serif'],
       },
     },
   },

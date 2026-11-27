@@ -56,6 +56,7 @@ model NotificationPreference {
   payments               Boolean  @default(true)
   appointmentReminders   Boolean  @default(true)
   quoteReminders         Boolean  @default(true)
+  emailReminders         Boolean  @default(true)
   updatedAt              DateTime @updatedAt
 }
 
@@ -192,7 +193,8 @@ model ListingPhoto {
   listingId String
   listing ServiceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
   mimeType String
-  image Bytes
+  image Bytes?
+  storageKey String?
   createdAt DateTime @default(now())
 
   @@index([listingId, createdAt])
@@ -379,7 +381,8 @@ model QuotePhoto {
   requestId String
   request QuoteRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   mimeType String
-  data Bytes
+  data Bytes?
+  storageKey String?
   @@index([requestId])
 }
 
@@ -442,7 +445,8 @@ model PortfolioItem {
   title String
   priceCents Int
   mimeType String
-  image Bytes
+  image Bytes?
+  storageKey String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([providerId, createdAt])
@@ -493,7 +497,8 @@ model VerificationDocument {
   submission VerificationSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   kind String
   mimeType String
-  data Bytes
+  data Bytes?
+  storageKey String?
   @@unique([submissionId, kind])
 }
 

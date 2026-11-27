@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Check, ClipboardList, MapPin, Sparkles, TrendingUp } from 'lucide-react';
 import DashboardWelcome from '../components/DashboardWelcome';
+import AttentionPanel from '../components/AttentionPanel';
 import PresenceStatus from '../components/PresenceStatus';
 import UpcomingAppointments from '../components/UpcomingAppointments';
 import { useAuth } from '../contexts/AppContext';
@@ -14,6 +15,7 @@ import { completedServiceValueCents } from '../utils/serviceValue';
 import { totalRecordedCents } from '../utils/payments';
 import { categoryLabel } from '../utils/serviceUtils';
 import { bookingHistoryPath, formatInboxTime } from '../utils/inbox';
+import ProviderBusinessInsights from '../components/ProviderBusinessInsights';
 
 const panel = 'dashboard-panel rounded-2xl border border-home-line bg-home-surface p-6';
 export default function ProviderDashboard() {
@@ -31,6 +33,8 @@ export default function ProviderDashboard() {
   ];
   return <main className="dashboard-page provider-overview min-h-screen px-5 py-10"><div className="mx-auto max-w-7xl">
     <DashboardWelcome role="provider" />
+    <AttentionPanel role="provider" bookings={bookings.data} quotes={requests.data} loading={bookings.isPending || requests.isPending} />
+    <ProviderBusinessInsights />
     <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{metrics.map(item => <div key={item.label} className={`${panel} dashboard-metric`}><p className="text-sm text-emerald-300">{item.label}</p><p className="mt-2 text-3xl font-semibold text-home-text">{item.value}</p><p className="mt-2 text-xs text-emerald-300">{item.help}</p></div>)}</div>
     {(bookings.isError || requests.isError || insights.isError) && <p role="alert" className="mt-4 text-red-300">Some dashboard information could not be loaded. Refresh to try again.</p>}
     <section className={`${panel} dashboard-activity mt-6`}><div className="dashboard-section-heading"><div><p className="dashboard-kicker">RECENTLY COMPLETED</p><h2>Your activity</h2><p>Your latest completed bookings</p></div><Link className="dashboard-view-link" to="/bookings">View all <ArrowUpRight size={15} /></Link></div>{bookings.isPending && <p className="dashboard-empty">Loading activity…</p>}{bookings.isSuccess && !recentCompleted.length && <p className="dashboard-empty">Your completed bookings will appear here.</p>}<div className="dashboard-activity__list">{recentCompleted.map(item => <Link key={item.id} to={bookingHistoryPath(item.id)} className="dashboard-activity__item"><span className="dashboard-activity__icon"><Check size={17} /></span><span className="dashboard-activity__details"><strong>{item.serviceTitle}</strong><small>{item.clientName} · {formatInboxTime(new Date(completedAt(item)).toISOString())}</small></span><span className="dashboard-activity__badge">Completed</span><ArrowUpRight className="dashboard-activity__arrow" size={16} /></Link>)}</div></section>
