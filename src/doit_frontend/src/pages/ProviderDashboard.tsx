@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Check, ClipboardList, MapPin, Sparkles, TrendingUp } from 'lucide-react';
 import DashboardWelcome from '../components/DashboardWelcome';
+import AttentionPanel from '../components/AttentionPanel';
 import PresenceStatus from '../components/PresenceStatus';
 import UpcomingAppointments from '../components/UpcomingAppointments';
 import { useAuth } from '../contexts/AppContext';
@@ -32,6 +33,7 @@ export default function ProviderDashboard() {
   ];
   return <main className="dashboard-page provider-overview min-h-screen px-5 py-10"><div className="mx-auto max-w-7xl">
     <DashboardWelcome role="provider" />
+    <AttentionPanel role="provider" bookings={bookings.data} quotes={requests.data} loading={bookings.isPending || requests.isPending} />
     <ProviderBusinessInsights />
     <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{metrics.map(item => <div key={item.label} className={`${panel} dashboard-metric`}><p className="text-sm text-emerald-300">{item.label}</p><p className="mt-2 text-3xl font-semibold text-home-text">{item.value}</p><p className="mt-2 text-xs text-emerald-300">{item.help}</p></div>)}</div>
     {(bookings.isError || requests.isError || insights.isError) && <p role="alert" className="mt-4 text-red-300">Some dashboard information could not be loaded. Refresh to try again.</p>}

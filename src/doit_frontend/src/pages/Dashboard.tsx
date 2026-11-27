@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
 import DashboardWelcome from '../components/DashboardWelcome';
+import AttentionPanel from '../components/AttentionPanel';
 import ClientPayments from '../components/ClientPayments';
 import ServiceListingCard from '../components/ServiceListingCard';
 import UpcomingAppointments from '../components/UpcomingAppointments';
@@ -43,6 +44,7 @@ export default function Dashboard() {
     { label: 'Completed service value', value: bookings.data ? formatRand(completedServiceValueCents(bookings.data)) : '—', hint: 'Full agreed value of completed services' },
   ];
   return <main className="dashboard-page client-overview min-h-screen px-5 py-10"><div className="mx-auto max-w-7xl"><DashboardWelcome role="client" />
+    <AttentionPanel role="client" bookings={bookings.data} quotes={requests.data} loading={bookings.isPending || requests.isPending} />
     <nav aria-label="Dashboard sections" className="dashboard-tabs mt-6 flex gap-2"><button type="button" className={tab === 'overview' ? 'btn-primary' : 'btn-secondary'} aria-current={tab === 'overview' ? 'page' : undefined} onClick={() => setTab('overview')}>Overview</button><button type="button" className={tab === 'payments' ? 'btn-primary' : 'btn-secondary'} aria-current={tab === 'payments' ? 'page' : undefined} onClick={() => setTab('payments')}>Payments</button></nav>
     {tab === 'payments' ? <ClientPayments bookings={bookings.data} quotes={requests.data} loading={bookings.isPending} error={bookings.isError} quotesLoading={requests.isPending} quotesError={requests.isError} /> : <>
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{metrics.map(metric => <div key={metric.label} className={`${panel} dashboard-metric`}><p className="text-sm text-emerald-300">{metric.label}</p><p className="mt-2 text-3xl font-semibold text-home-text">{metric.value}</p><p className="mt-2 text-xs text-emerald-300">{metric.hint}</p></div>)}</div>
