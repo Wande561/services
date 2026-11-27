@@ -9,6 +9,6 @@ import { AiProviderClient } from './providers/ai-provider.client';
 @Module({
   imports: [AuthModule],
   providers: [AiSessionGuard, AiRoleGuard, AiRateLimitGuard, AiService, AiUsageMonitor, AiProviderClient],
-  exports: [AiSessionGuard, AiRoleGuard, AiRateLimitGuard, AiService, AiUsageMonitor, AiProviderClient],
+  exports: [AuthModule, AiSessionGuard, AiRoleGuard, AiRateLimitGuard, AiService, AiUsageMonitor, AiProviderClient],
 })
 export class AiCoreModule {}
