@@ -17,7 +17,8 @@ export default function ServiceListingCard({ listing, bookable = false, appearan
   if (currentUser?.profile?.role === 'client' && listing.providerId === currentUser.id) return null;
   const href = `/services/${encodeURIComponent(listing.id)}`;
   const image = listing.photos?.[0];
-  const cover = image ? <img src={`/api/services/photos/${encodeURIComponent(image.id)}`} alt={`${listing.title} service`} loading="lazy" /> : <span className="listing-card__placeholder"><Sparkles aria-hidden="true" /><span>ServiceConnect</span></span>;
+  const photoUrl = image ? `/api/services/photos/${encodeURIComponent(image.id)}` : '';
+  const cover = image ? <><img className="listing-card__backdrop" src={photoUrl} alt="" aria-hidden="true" loading="lazy" /><img className="listing-card__image" src={photoUrl} alt={`${listing.title} service`} loading="lazy" /></> : <span className="listing-card__placeholder"><Sparkles aria-hidden="true" /><span>ServiceConnect</span><small>LOCAL SERVICES, CONNECTED</small></span>;
   return <article className={`listing-card listing-card--${appearance}`}>
     {listing.isPublished ? <Link to={href} className="listing-card__cover" aria-label={`View ${listing.title}`}>{cover}{listing.photos?.length > 1 && <span className="listing-card__photos">+ {listing.photos.length - 1} photos</span>}</Link> : <div className="listing-card__cover">{cover}</div>}
     <div className="listing-card__body"><div className="listing-card__meta"><span>{categoryLabel(listing.category)}</span><span><MapPin aria-hidden="true" />{listing.location}</span></div>

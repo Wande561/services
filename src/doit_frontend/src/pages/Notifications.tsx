@@ -42,8 +42,8 @@ export default function Notifications() {
 
   return (
     <main className="polished-page notifications-page min-h-screen bg-gray-900 px-4 py-12 text-white sm:px-6">
-      <div className="mx-auto max-w-4xl">
-        <header className="workspace-page-header mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div className="notifications-shell">
+        <header className="workspace-page-header notifications-header">
           <div>
             <Link to={accountHome(currentUser?.profile?.role)} className="text-sm text-orange-300 hover:underline">← Dashboard</Link>
             <p className="workspace-eyebrow">YOUR WORKSPACE / UPDATES</p><h1 className="mt-2 text-3xl font-bold">Notifications</h1><p className="mt-2 text-sm text-emerald-300">Your latest activity, all in one place.</p>
@@ -66,11 +66,11 @@ export default function Notifications() {
         )}
         {quoteNotices.isError && <p role="alert" className="mb-3 text-red-300">Could not load quote notifications. <button type="button" className="underline" onClick={() => quoteNotices.refetch()}>Try again</button></p>}
         {reliability.isError && <p role="alert" className="mb-3 text-red-300">Could not load reliability updates.</p>}
-        <ul className="space-y-3">
-          {reliability.data?.alerts.map(alert => <li key={alert.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-gray-700 bg-gray-800 p-4"><Link to="/reliability" className="flex items-start gap-3"><Bell aria-hidden="true" className="mt-1 h-5 w-5 text-emerald-300" /><span><span className="block font-medium">{alert.message}{!alert.readAt && <span className="ml-2 text-xs text-emerald-300">Unread</span>}</span><span className="block text-xs text-gray-400">{formatInboxTime(alert.createdAt)}</span></span></Link></li>)}
-          {quoteNotices.data?.map(alert => <li key={alert.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-gray-700 bg-gray-800 p-4">
+        <ul className="notifications-list">
+          {reliability.data?.alerts.map(alert => <li key={alert.id} className="notification-row notification-row--reliability flex flex-wrap items-start justify-between gap-3 rounded-xl border border-gray-700 bg-gray-800 p-4"><Link to="/reliability" className="flex items-start gap-3"><Bell aria-hidden="true" className="mt-1 h-5 w-5 text-emerald-300" /><span className="notification-row__content"><span className="block font-medium">{alert.message}{!alert.readAt && <span className="ml-2 text-xs text-emerald-300">Unread</span>}</span><span className="block text-xs text-gray-400">{formatInboxTime(alert.createdAt)}</span></span></Link></li>)}
+          {quoteNotices.data?.map(alert => <li key={alert.id} className="notification-row flex flex-wrap items-start justify-between gap-3 rounded-xl border border-gray-700 bg-gray-800 p-4">
             <Link to={`/quotes?${new URLSearchParams({ request: alert.requestId })}`} onClick={() => { if (!alert.readAt) quoteRead.mutate(alert.id); }} className="flex items-start gap-3">
-              <Bell aria-hidden="true" className="mt-1 h-5 w-5 text-emerald-300" /><span><span className="block font-medium">{alert.message}{!alert.readAt && <span className="ml-2 text-xs text-emerald-300">Unread</span>}</span><span className="block text-sm text-gray-300">{alert.request.listing.title}</span><span className="block text-xs text-gray-400">{formatInboxTime(alert.createdAt)}</span></span>
+              <Bell aria-hidden="true" className="mt-1 h-5 w-5 text-emerald-300" /><span className="notification-row__content"><span className="block font-medium">{alert.message}{!alert.readAt && <span className="ml-2 text-xs text-emerald-300">Unread</span>}</span><span className="block text-sm text-gray-300">{alert.request.listing.title}</span><span className="block text-xs text-gray-400">{formatInboxTime(alert.createdAt)}</span></span>
             </Link>
             {!alert.readAt && <button type="button" className="text-sm text-emerald-300 underline" onClick={() => quoteRead.mutate(alert.id)}>Mark as read</button>}
           </li>)}
@@ -78,11 +78,11 @@ export default function Notifications() {
             const { title, icon: Icon } = notificationLabel(notification);
             const destination = notification.quoteRequestId ? quoteMessagePath(notification.quoteRequestId) : notification.kind === 'MessageReceived' ? messagePath(notification.bookingId!) : bookingHistoryPath(notification.bookingId!);
             return (
-              <li key={notification.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-gray-700 bg-gray-800 p-4">
+              <li key={notification.id} className="notification-row flex flex-wrap items-start justify-between gap-3 rounded-xl border border-gray-700 bg-gray-800 p-4">
                 <Link to={destination} className="flex min-w-0 items-start gap-3 hover:text-orange-300"
                   onClick={() => { if (!notification.read) read.mutate(notification.id); }}>
                   <Icon aria-hidden="true" className="mt-1 h-5 w-5 shrink-0 text-orange-300" />
-                  <div className="min-w-0">
+                  <div className="notification-row__content">
                     <p className="font-medium">{title}{!notification.read && <span className="ml-2 text-xs text-orange-200">Unread</span>}</p>
                     <p className="break-words text-sm text-gray-300">{notification.serviceTitle}</p>
                     <p className="mt-1 text-xs text-gray-400">{formatInboxTime(notification.createdAt)}</p>
