@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:status": "prisma migrate status",
     "storage:migrate": "ts-node scripts/migrate-object-storage.ts",
+    "storage:setup": "ts-node scripts/setup-r2.ts",
     "legacy:import": "ts-node scripts/import-legacy.ts",
     "test": "npm run build && node --test test/*.test.cjs"
   },

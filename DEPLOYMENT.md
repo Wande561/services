@@ -20,8 +20,9 @@ Set these in the API Vercel project's Production environment. Use Preview values
 | `NODE_ENV` | Set to `production` so session cookies are secure. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Required for Google sign-in. |
 | `GOOGLE_REDIRECT_URI` | Optional override. By default, the callback is `${FRONTEND_URL}/api/auth/google/callback`, which the frontend rewrite forwards to the API. Register that exact URI in Google Cloud. |
-| `RESEND_API_KEY`, `MAIL_FROM` | Required for password reset email. `MAIL_FROM` must be a sender verified with Resend. |
+| `RESEND_API_KEY`, `MAIL_FROM` | Required for password reset and appointment/quote reminder email. `MAIL_FROM` must be a sender verified with Resend. |
 | `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Required for file uploads and reads in the private Cloudflare R2 bucket. Create credentials limited to this bucket with object read/write access. |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Setup only, for `npm run storage:setup`. The token needs R2 admin permission. Do not add these to the runtime API environment. |
 | `AI_PROVIDER` | Set explicitly to `openai` or `anthropic` for the server-side AI provider. |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | Required when `AI_PROVIDER=openai`. Store only in the API project's server environment. |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Required when `AI_PROVIDER=anthropic`. Store only in the API project's server environment. |
@@ -35,7 +36,7 @@ AI requests and provider credentials stay on the API. Do not add AI credentials 
 ## Safe production release order
 
 1. Review the pending SQL migrations and verify, using the Vercel API project's Production environment settings, that `DATABASE_URL` names the intended production database. Take and verify a database backup using that database provider's backup process before applying migrations. Never paste the connection string into logs or chat.
-2. Create a private R2 bucket and a bucket-scoped S3 API token with object read/write access. Add the four `R2_*` values to the API Vercel Production environment. Keep the bucket private; files are served through authenticated API routes.
+2. Create a private R2 bucket and a bucket-scoped S3 API token with object read/write access. You can create the bucket with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` set, then `npm run storage:setup` from `src/api`; the script never prints secrets. Add the four `R2_*` values to the API Vercel Production environment. Keep the bucket private; files are served through authenticated API routes.
 3. From `src/api`, check migration status with `npx prisma migrate status` against the confirmed target. If the expected reviewed migrations are pending, apply them with `npx prisma migrate deploy`. Do not use `prisma migrate dev` against production.
 4. Deploy the API project from the intended Git commit. Confirm its production build completes and inspect runtime logs for Prisma or R2 errors. The new API reads legacy database files while new uploads go to R2.
 5. With the backup verified and the API serving traffic, run `npm run storage:migrate -- --apply` from `src/api` to copy legacy PostgreSQL files to R2 and clear their database byte columns. The command without `--apply` only reports the number of legacy files. Keep R2 credentials and `DATABASE_URL` configured for this operation. If interrupted, rerun the command; uploads use deterministic keys.
