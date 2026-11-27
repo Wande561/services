@@ -32,6 +32,9 @@ export class QuotesController {
   @Post(':id/offer') async offer(@Req() req: Request, @Param('id') id: string, @Body() body: any) {
     checkFrontendOrigin(req.get('origin')); const a = await this.auth.requireProfile(req.cookies?.session, 'provider'); return this.quotes.offer(a.id, id, body);
   }
+  @Post(':id/withdraw') async withdraw(@Req() req: Request, @Param('id') id: string) {
+    checkFrontendOrigin(req.get('origin')); const a = await this.auth.requireProfile(req.cookies?.session, 'client'); return this.quotes.withdraw(a.id, id);
+  }
   @Post(':id/bank-details') async bankDetails(@Req() req: Request, @Param('id') id: string, @Body() body: any) {
     checkFrontendOrigin(req.get('origin')); const a = await this.auth.requireProfile(req.cookies?.session, 'provider'); return this.quotes.bankDetails(a.id, id, body);
   }

@@ -146,6 +146,7 @@ export default function ManageListings() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<'new' | ServiceListing | null>(null);
   const [notice, setNotice] = useState('');
+  const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all');
 
   async function refreshListings() {
     await Promise.all([
@@ -179,7 +180,7 @@ export default function ManageListings() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-900 px-4 py-12 text-white sm:px-6">
+    <main className="polished-page listings-manage-page min-h-screen bg-gray-900 px-4 py-12 text-white sm:px-6">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -218,8 +219,10 @@ export default function ManageListings() {
         {query.data?.length === 0 && !editing && (
           <p className="rounded-xl border border-gray-700 bg-gray-800 p-6 text-gray-300">You have no listings yet. Select New listing, save your service details, then select Publish so clients can find you.</p>
         )}
+        {query.data && query.data.length > 0 && <div className="listing-filters" role="group" aria-label="Filter listings">{([['all', 'All', query.data.length], ['published', 'Published', query.data.filter(item => item.isPublished).length], ['draft', 'Drafts', query.data.filter(item => !item.isPublished).length]] as const).map(([value, label, count]) => <button type="button" key={value} className={filter === value ? 'is-active' : ''} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label} <span>{count}</span></button>)}</div>}
+        {query.data && query.data.length > 0 && !query.data.some(listing => filter === 'all' || listing.isPublished === (filter === 'published')) && <p className="polished-empty">No {filter} listings yet.</p>}
         <div className="grid gap-4 sm:grid-cols-2">
-          {query.data?.map(listing => (
+          {query.data?.filter(listing => filter === 'all' || listing.isPublished === (filter === 'published')).map(listing => (
             <ServiceListingCard key={listing.id} listing={listing}>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-700 pt-3">
                 <span className={listing.isPublished ? 'text-sm text-green-300' : 'text-sm text-gray-300'}>

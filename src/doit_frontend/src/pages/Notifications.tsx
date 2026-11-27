@@ -30,7 +30,6 @@ export default function Notifications() {
   const unread = useQuery(inboxUnread(accountId));
   const quoteNotices = useQuery(quoteAlerts(accountId));
   const reliability = useQuery(myReliability(accountId));
-  const preferences = useQuery({ queryKey: ['notifications', 'preferences', accountId], queryFn: ({ signal }) => apiRequest<NotificationPreferences>('/notifications/preferences', { signal }), enabled: Boolean(accountId) });
   const queryClient = useQueryClient();
   const read = useMutation({
     mutationFn: readNotifications,
@@ -39,11 +38,10 @@ export default function Notifications() {
   const reliabilityReadAll = useMutation({ mutationFn: () => apiRequest('/reliability/alerts/read-all', { method: 'PATCH' }), onSettled: () => queryClient.invalidateQueries({ queryKey: reliabilityKey }) });
   const quoteReadAll = useMutation({ mutationFn: () => apiRequest('/quotes/alerts/read-all', { method: 'PATCH' }), onSettled: () => queryClient.invalidateQueries({ queryKey: quoteKey }) });
   const quoteRead = useMutation({ mutationFn: (id: string) => apiRequest(`/quotes/alerts/${id}/read`, { method: 'PATCH' }), onSettled: () => queryClient.invalidateQueries({ queryKey: quoteKey }) });
-  const updatePreference = useMutation({ mutationFn: ({ key, value }: { key: keyof NotificationPreferences; value: boolean }) => apiRequest<NotificationPreferences>('/notifications/preferences', { method: 'PATCH', data: { [key]: value } }), onSuccess: data => { queryClient.setQueryData(['notifications', 'preferences', accountId], data); queryClient.invalidateQueries({ queryKey: inboxKey }); } });
   const items = alerts.data?.pages.flatMap(page => page.items) ?? [];
 
   return (
-    <main className="min-h-screen bg-gray-900 px-4 py-12 text-white sm:px-6">
+    <main className="polished-page notifications-page min-h-screen bg-gray-900 px-4 py-12 text-white sm:px-6">
       <div className="mx-auto max-w-4xl">
         <header className="workspace-page-header mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -54,13 +52,6 @@ export default function Notifications() {
             disabled={read.isPending || quoteReadAll.isPending || reliabilityReadAll.isPending || !(unread.data?.notifications || items.some(alert => !alert.read) || quoteNotices.data?.some(alert => !alert.readAt) || reliability.data?.alerts.some(alert => !alert.readAt))}
             onClick={() => { read.mutate(undefined); quoteReadAll.mutate(); reliabilityReadAll.mutate(); }}>Mark all as read</button>
         </header>
-        <section className="mb-6 rounded-xl border border-gray-700 bg-gray-800 p-5" aria-labelledby="notification-preferences-heading">
-          <h2 id="notification-preferences-heading" className="text-xl font-semibold">Notification choices</h2>
-          <p className="mt-1 text-sm text-gray-300">Choose which booking, message, review, payment and reminder alerts appear here. Quote activity and account safety notices remain visible. Reminders are created up to 24 hours before the appointment or quote expiry.</p>
-          {preferences.isError && <p role="alert" className="mt-3 text-sm text-red-300">{preferences.error.message}</p>}
-          {preferences.data && <div className="mt-4 grid gap-3 sm:grid-cols-2">{preferenceOptions.map(({ key, title, detail }) => <label key={key} className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-700 p-3"><input type="checkbox" className="mt-1 accent-emerald-400" checked={preferences.data[key]} disabled={updatePreference.isPending} onChange={event => updatePreference.mutate({ key, value: event.currentTarget.checked })} /><span><span className="block text-sm font-medium">{title}</span><span className="mt-1 block text-xs text-gray-400">{detail}</span></span></label>)}</div>}
-          {updatePreference.isError && <p role="alert" className="mt-3 text-sm text-red-300">{updatePreference.error.message}</p>}
-        </section>
         {alerts.isPending && <p role="status" className="text-gray-300">Loading notifications…</p>}
         {alerts.isError && <p role="alert" className="text-red-300">
           {alerts.error.message} <button type="button" className="underline" onClick={() => alerts.refetch()}>Try again</button>
@@ -109,13 +100,3 @@ export default function Notifications() {
     </main>
   );
 }
-
-interface NotificationPreferences { bookingUpdates: boolean; messages: boolean; reviews: boolean; payments: boolean; appointmentReminders: boolean; quoteReminders: boolean }
-const preferenceOptions: { key: keyof NotificationPreferences; title: string; detail: string }[] = [
-  { key: 'bookingUpdates', title: 'Booking updates', detail: 'Requests, confirmations, changes and completion.' },
-  { key: 'messages', title: 'New messages', detail: 'Alerts when someone messages you about a booking.' },
-  { key: 'reviews', title: 'Reviews', detail: 'Let me know when a client or provider leaves a review.' },
-  { key: 'payments', title: 'Payment records', detail: 'Deposits and payment records added or voided.' },
-  { key: 'appointmentReminders', title: 'Appointment reminders', detail: 'A reminder for confirmed appointments within 24 hours.' },
-  { key: 'quoteReminders', title: 'Expiring quote reminders', detail: 'A reminder when a quotation is due to expire within 24 hours.' },
-];

@@ -43,6 +43,13 @@ export class NotificationsController {
     return this.notifications.markAllRead(account.id);
   }
 
+  @Patch('read-viewed')
+  async readViewed(@Req() req: Request, @Body() body: Record<string, unknown>) {
+    checkFrontendOrigin(req.get('origin'));
+    const account = await this.auth.requireProfile(req.cookies?.session);
+    return this.notifications.markViewed(account.id, body);
+  }
+
   @Patch(':id/read')
   async read(@Req() req: Request, @Param('id') id: string) {
     checkFrontendOrigin(req.get('origin'));

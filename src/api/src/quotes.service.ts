@@ -99,6 +99,16 @@ export class QuotesService {
     if (!image) throw new NotFoundException('Photo not found');
     return image;
   }
+  async withdraw(clientId: string, requestId: string) {
+    return this.db.$transaction(async tx => {
+      const request = await tx.quoteRequest.findFirst({ where: { id: requestId, clientId }, select: { providerId: true } });
+      if (!request) throw new NotFoundException('Quote request not found');
+      const changed = await tx.quoteRequest.updateMany({ where: { id: requestId, clientId, status: 'Pending', versions: { none: {} } }, data: { status: 'Declined' } });
+      if (!changed.count) throw new ConflictException('This request can no longer be withdrawn. Refresh to see the latest status.');
+      await tx.quoteAlert.create({ data: { recipientId: request.providerId, requestId, message: 'The client withdrew the quote request.' } });
+      return tx.quoteRequest.findUniqueOrThrow({ where: { id: requestId }, select: selection });
+    });
+  }
   async offer(providerId: string, requestId: string, body: any) {
     const description = body?.serviceDescription;
     const serviceDescription = description == null || (typeof description === 'string' && !description.trim())

@@ -2,13 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FormEvent } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import BookingSummary from '../components/BookingSummary';
+import HistoryCard from '../components/HistoryCard';
 import BookingReliability, { CancelBooking } from '../components/BookingReliability';
 import BookingPayment from '../components/BookingPayment';
 import { useAuth } from '../contexts/AppContext';
 import type { AccountRole, Booking, BookingStatus } from '../types';
 import { accountHome } from '../utils/accountRoutes';
-import { accountBookings, bookingKey, confirmCompletion, updateBookingStatus } from '../utils/bookings';
+import { accountBookings, bookingKey, confirmCompletion, formatSlot, updateBookingStatus } from '../utils/bookings';
 import { inboxKey, messagePath } from '../utils/inbox';
+import { useViewedUpdates } from '../utils/useViewedUpdates';
 import { leaveReview, leaveClientReview, reviewsKey } from '../utils/reviews';
 
 function ReviewForm({ bookingId, role }: { bookingId: string; role: AccountRole }) {
@@ -80,6 +82,7 @@ export default function Bookings() {
   const queryClient = useQueryClient();
   const bookings = useQuery(accountBookings(currentUser?.id ?? ''));
   const displayedBookings = bookings.data?.filter(booking => !selectedBooking || booking.id === selectedBooking);
+  useViewedUpdates(currentUser?.id ?? '', 'bookings', [], displayedBookings?.map(booking => booking.id) ?? [], bookings.dataUpdatedAt);
   const update = useMutation({
     mutationFn: ({ id, status }: { id: string; status: BookingStatus }) => updateBookingStatus(id, status),
     onSettled: () => Promise.all([
@@ -122,7 +125,7 @@ export default function Bookings() {
         </p>}
         <div className="space-y-4">
           {displayedBookings?.map(booking => (
-            <article key={booking.id} className="booking-card rounded-xl border border-gray-700 bg-gray-800 p-5">
+            <HistoryCard key={booking.id} collapsed={booking.status === 'Completed' || booking.status === 'Cancelled' || booking.status === 'Declined'} title={booking.serviceTitle} subtitle={`${role === 'provider' ? booking.clientName : booking.providerName} · ${formatSlot(booking)}`} status={booking.status} initiallyOpen={!!selectedBooking}><article className="booking-card rounded-xl border border-gray-700 bg-gray-800 p-5">
               <BookingSummary booking={booking} role={role} />
               <p className="mt-3 break-words text-sm text-gray-300"><span className="font-medium text-white">Service address</span> {booking.address}</p>
               {booking.notes && <p className="mt-1 whitespace-pre-line break-words text-sm text-gray-300"><span className="font-medium text-white">Notes</span> {booking.notes}</p>}
@@ -146,7 +149,7 @@ export default function Bookings() {
                 </details>}
                 {(role === 'client' ? !booking.review : !booking.clientReview) && <ReviewForm bookingId={booking.id} role={role} />}
               </>}
-            </article>
+            </article></HistoryCard>
           ))}
         </div>
       </div>

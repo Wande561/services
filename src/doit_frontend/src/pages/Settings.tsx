@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, BadgeCheck, Check, Eye, EyeOff, LockKeyhole, MapPin, ShieldCheck, Star, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BadgeCheck, Bell, Check, Eye, EyeOff, LockKeyhole, MapPin, ShieldCheck, Star, UserRound } from 'lucide-react';
 import { useAuth } from '../contexts/AppContext';
 import { ServiceCategoryEnum } from '../types';
 import { accountHome } from '../utils/accountRoutes';
@@ -9,6 +9,7 @@ import { apiRequest } from '../utils/apiRequest';
 import { categoryLabel } from '../utils/serviceUtils';
 import { providerReviews } from '../utils/reviews';
 import ProviderVerification from '../components/ProviderVerification';
+import NotificationPreferences from '../components/NotificationPreferences';
 import { myVerification, verificationKey } from '../utils/verification';
 
 const field = 'account-input';
@@ -17,8 +18,8 @@ export default function Settings() {
   const { currentUser, updateProfile } = useAuth();
   const cache = useQueryClient();
   const { hash } = useLocation();
-  const [section, setSection] = useState<'profile' | 'verification' | 'security'>(hash === '#verification-settings' ? 'verification' : hash === '#security-settings' ? 'security' : 'profile');
-  useEffect(() => { if (hash === '#verification-settings') setSection('verification'); else if (hash === '#security-settings') setSection('security'); else if (hash === '#profile-settings') setSection('profile'); }, [hash]);
+  const [section, setSection] = useState<'profile' | 'verification' | 'security' | 'notifications'>(hash === '#notification-settings' ? 'notifications' : hash === '#verification-settings' ? 'verification' : hash === '#security-settings' ? 'security' : 'profile');
+  useEffect(() => { if (hash === '#notification-settings') setSection('notifications'); else if (hash === '#verification-settings') setSection('verification'); else if (hash === '#security-settings') setSection('security'); else if (hash === '#profile-settings') setSection('profile'); }, [hash]);
   const profile = currentUser!.profile!;
   const verification = useQuery({ ...myVerification(currentUser?.id ?? ''), enabled: profile.role !== 'admin' && !!currentUser?.id });
   const rating = useQuery(providerReviews(currentUser?.id ?? ''));
@@ -77,6 +78,7 @@ export default function Settings() {
   const tabs = [
     { id: 'profile' as const, label: 'Personal details', caption: 'Your public & contact information', icon: UserRound },
     ...(profile.role !== 'admin' ? [{ id: 'verification' as const, label: 'Verification', caption: 'Your verification status', icon: ShieldCheck }] : []),
+    { id: 'notifications' as const, label: 'Notifications', caption: 'Choose your updates', icon: Bell },
     { id: 'security' as const, label: 'Password & security', caption: 'Keep your account secure', icon: LockKeyhole },
   ];
   return <main className="account-page"><div className="account-shell">
@@ -96,6 +98,7 @@ export default function Settings() {
         <div className="account-actions">{profileError && <p role="alert" className="account-error">{profileError}</p>}{profileMessage && <p role="status" className="account-success">{profileMessage}</p>}<button className="account-save" disabled={profileBusy}>{profileBusy ? 'Saving…' : 'Save changes'} <ArrowRight aria-hidden="true" /></button></div>
       </form>}
       {section === 'verification' && profile.role !== 'admin' && <div id="verification-settings" className="account-verification"><ProviderVerification /></div>}
+      {section === 'notifications' && <NotificationPreferences accountId={currentUser!.id} />}
       {section === 'security' && <form id="security-settings" onSubmit={changePassword} className="account-card"><div className="account-card__head"><div><span className="account-section-label">03 / SECURITY</span><h2>Password & security</h2><p>Choose a strong password for your account.</p></div><span className="account-card__icon"><LockKeyhole aria-hidden="true" /></span></div><p className="account-note">If you sign in with Google, manage your password through your Google account.</p><div className="account-fields account-fields--security"><label>Current password<input className={field} type={showPassword ? 'text' : 'password'} autoComplete="current-password" required maxLength={128} value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} /></label><label>New password<input className={field} type={showPassword ? 'text' : 'password'} autoComplete="new-password" required minLength={8} maxLength={128} value={newPassword} onChange={e => setNewPassword(e.target.value)} /></label><label>Confirm new password<input className={field} type={showPassword ? 'text' : 'password'} autoComplete="new-password" required minLength={8} maxLength={128} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} /></label></div><button type="button" className="account-show" aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}{showPassword ? 'Hide passwords' : 'Show passwords'}</button><div className="account-actions">{passwordError && <p role="alert" className="account-error">{passwordError}</p>}{passwordMessage && <p role="status" className="account-success">{passwordMessage}</p>}<button className="account-save" disabled={passwordBusy}>{passwordBusy ? 'Changing…' : 'Update password'} <ArrowRight aria-hidden="true" /></button></div></form>}
     </div></div>
   </div></main>;

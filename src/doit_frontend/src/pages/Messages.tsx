@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AppContext';
 import PresenceStatus from '../components/PresenceStatus';
+import { MessageCircle } from 'lucide-react';
 import { accountHome } from '../utils/accountRoutes';
 import { bookingHistoryPath, conversations, formatInboxTime, inboxKey, messagePath, messageThread, readMessages, sendMessage } from '../utils/inbox';
 
@@ -45,7 +46,7 @@ function ConversationPanel({ accountId, bookingId }: { accountId: string; bookin
   }
 
   return (
-    <section aria-label="Conversation" className="min-w-0 rounded-xl border border-gray-700 bg-gray-800">
+    <section aria-label="Conversation" className="message-panel min-w-0 rounded-xl border border-gray-700 bg-gray-800">
       {thread.isPending && <p role="status" className="p-5 text-gray-300">Loading conversation…</p>}
       {thread.isError && (
         <p role="alert" className="p-5 text-red-300">
@@ -70,7 +71,7 @@ function ConversationPanel({ accountId, bookingId }: { accountId: string; bookin
               <div key={message.id} className="text-center text-xs text-gray-300"><span className="inline-block rounded-full bg-gray-700 px-3 py-1">{message.body} · {formatInboxTime(message.createdAt)}</span></div>
             ) : (
               <div key={message.id} className={`flex ${message.mine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-xl px-3 py-2 ${message.mine ? 'bg-orange-900/60' : 'bg-gray-700'}`}>
+                <div className={`message-bubble max-w-[85%] rounded-xl px-3 py-2 ${message.mine ? 'is-mine bg-orange-900/60' : 'bg-gray-700'}`}>
                   <p className="whitespace-pre-wrap break-words">{message.body}</p>
                   <p className="mt-1 text-xs text-gray-300">
                     {formatInboxTime(message.createdAt)}{message.mine && message.read ? ' · Read' : ''}
@@ -106,7 +107,7 @@ export default function Messages() {
   const threads = useQuery(conversations(accountId));
 
   return (
-    <main className="min-h-screen bg-gray-900 px-4 py-12 text-white sm:px-6">
+    <main className="polished-page messages-page min-h-screen bg-gray-900 px-4 py-12 text-white sm:px-6">
       <div className="mx-auto max-w-6xl">
         <header className="workspace-page-header mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -116,7 +117,7 @@ export default function Messages() {
           <Link to="/bookings" className="btn-secondary">View bookings</Link>
         </header>
         <div className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)]">
-          <section className="rounded-xl border border-gray-700 bg-gray-800 p-3">
+          <section className="message-list rounded-xl border border-gray-700 bg-gray-800 p-3">
             <h2 className="px-2 pb-2 text-sm font-semibold text-gray-300">Conversations</h2>
             {threads.isPending && <p role="status" className="px-2 text-sm text-gray-300">Loading conversations…</p>}
             {threads.isError && <p role="alert" className="px-2 text-sm text-red-300">
@@ -127,7 +128,7 @@ export default function Messages() {
               {threads.data?.map(thread => (
                 <li key={thread.bookingId}>
                   <Link to={messagePath(thread.bookingId)} aria-current={thread.bookingId === bookingId ? 'page' : undefined}
-                    className={`block rounded-lg p-3 hover:bg-gray-700 ${thread.bookingId === bookingId ? 'bg-gray-700' : ''}`}>
+                    className={`message-list__item block rounded-lg p-3 hover:bg-gray-700 ${thread.bookingId === bookingId ? 'is-active bg-gray-700' : ''}`}>
                     <div className="flex items-start justify-between gap-2">
                       <span className="min-w-0 break-words font-medium">{thread.contactName}</span>
                       {thread.unread > 0 && <span className="shrink-0 text-xs text-orange-200">{thread.unread} unread</span>}
@@ -141,7 +142,7 @@ export default function Messages() {
             </ul>
           </section>
           {bookingId ? <ConversationPanel key={bookingId} accountId={accountId} bookingId={bookingId} /> : (
-            <p className="rounded-xl border border-gray-700 bg-gray-800 p-5 text-gray-300">Select a conversation to read or send messages.</p>
+            <div className="messages-empty"><span className="messages-empty__icon"><MessageCircle aria-hidden="true" /></span><p className="messages-empty__eyebrow">YOUR CONVERSATIONS</p><h2>Let's chat.</h2><p>Choose a conversation to read or send a message.</p></div>
           )}
         </div>
       </div>

@@ -134,4 +134,17 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     await this.db.notification.updateMany({ where: { recipientId, id, readAt: null }, data: { readAt: new Date() } });
     return { success: true };
   }
+
+  async markViewed(recipientId: string, body: Record<string, unknown> | undefined) {
+    const { quoteIds, bookingIds, before, scope } = body ?? {};
+    const validIds = (ids: unknown): ids is string[] => Array.isArray(ids) && ids.length <= 100 && ids.every(id => typeof id === 'string' && id.length > 0 && id.length <= 128);
+    if (!validIds(quoteIds) || !validIds(bookingIds) || (scope !== 'quotes' && scope !== 'bookings') || typeof before !== 'string' || Number.isNaN(Date.parse(before))) throw new BadRequestException('Invalid viewed items');
+    const cutoff = new Date(Math.min(Date.parse(before), Date.now()));
+    const readAt = new Date();
+    const operations: Prisma.PrismaPromise<unknown>[] = [];
+    if (scope === 'quotes' && quoteIds.length) operations.push(this.db.quoteAlert.updateMany({ where: { recipientId, requestId: { in: quoteIds }, readAt: null, createdAt: { lte: cutoff } }, data: { readAt } }));
+    if (bookingIds.length) operations.push(this.db.notification.updateMany({ where: { recipientId, bookingId: { in: bookingIds }, readAt: null, createdAt: { lte: cutoff }, kind: scope === 'quotes' ? { in: ['BookingRequested', 'BookingStatusChanged'] } : { not: 'MessageReceived' } }, data: { readAt } }));
+    if (operations.length) await this.db.$transaction(operations);
+    return { success: true };
+  }
 }

@@ -57,7 +57,7 @@ function RequireProfile({ role }: { role?: AccountRole }) {
 function AppRoutes() {
   const { pathname } = useLocation();
   const page = pathname === '/' ? 'home' : pathname === '/provider-dashboard/hours' ? 'hours' : pathname === '/settings' ? 'settings' : pathname.split('/').filter(Boolean)[0] || 'home';
-  return <FormFeedback><div className={pathname === '/' ? undefined : 'app-theme'}><SiteNavbar /><div className="page-stage min-w-0 md:pl-64" data-page={page}><Routes>
+  return <FormFeedback><div className={pathname === '/' ? undefined : 'app-theme'}>{pathname !== '/' && <SiteNavbar />}<div className={`page-stage min-w-0 ${pathname === '/' ? '' : 'md:pl-64'}`} data-page={page}><Routes>
             <Route path="/" element={<Home />} />
             <Route path="/signin" element={<SignIn />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
