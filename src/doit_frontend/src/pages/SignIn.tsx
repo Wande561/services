@@ -14,6 +14,7 @@ export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [keepSignedIn, setKeepSignedIn] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -40,8 +41,8 @@ export default function SignIn() {
     setBusy(true);
     setError('');
     try {
-      if (creating) await register(name, email, password);
-      else await login(email, password);
+      if (creating) await register(name, email, password, keepSignedIn);
+      else await login(email, password, keepSignedIn);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed');
     } finally { setBusy(false); }
@@ -60,7 +61,8 @@ export default function SignIn() {
         {creating && <label>Name<input required value={name} onChange={e => setName(e.target.value)} autoComplete="name" placeholder="Your name" /></label>}
         <label>Email address<input required type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" /></label>
         <label>Password<span className="auth-password"><input required type={showPassword ? 'text' : 'password'} minLength={8} value={password} onChange={e => setPassword(e.target.value)} autoComplete={creating ? 'new-password' : 'current-password'} placeholder="Enter your password" /><button type="button" onClick={() => setShowPassword(visible => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}>{showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button></span></label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" checked={keepSignedIn} onChange={e => setKeepSignedIn(e.target.checked)} style={{ width: 'auto', minHeight: 0 }} /> Keep me signed in</label>
         {error && <p role="alert" className="auth-error">{error}</p>}<button disabled={busy} className="auth-submit">{busy ? 'Please wait…' : creating ? 'Create account' : 'Sign in'} <ArrowRight aria-hidden="true" /></button>
-      </form>{!creating && <Link className="mt-3 inline-block text-sm text-emerald-300 underline" to="/forgot-password">Forgot your password?</Link>}<div className="auth-divider"><span />or<span /></div><button type="button" onClick={() => { if (searchParams.get('book')) sessionStorage.setItem('pendingQuote', searchParams.toString()); else sessionStorage.removeItem('pendingQuote'); googleLogin(); }} className="auth-google">Continue with Google <ArrowRight aria-hidden="true" /></button><p className="auth-switch">{creating ? 'Already have an account?' : 'New to ServiceConnect?'} <button type="button" onClick={() => { setCreating(!creating); setError(''); }}>{creating ? 'Sign in' : 'Create an account'}</button></p>
+      </form>{!creating && <Link className="mt-3 inline-block text-sm text-emerald-300 underline" to="/forgot-password">Forgot your password?</Link>}<div className="auth-divider"><span />or<span /></div><button type="button" onClick={() => { if (searchParams.get('book')) sessionStorage.setItem('pendingQuote', searchParams.toString()); else sessionStorage.removeItem('pendingQuote'); googleLogin(keepSignedIn); }} className="auth-google">Continue with Google <ArrowRight aria-hidden="true" /></button><p className="auth-switch">{creating ? 'Already have an account?' : 'New to ServiceConnect?'} <button type="button" onClick={() => { setCreating(!creating); setError(''); }}>{creating ? 'Sign in' : 'Create an account'}</button></p>
     </section></div></div></main>;
 }

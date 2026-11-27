@@ -7,15 +7,19 @@ import { PrismaService } from './prisma.service';
 import { requiredText } from './request-validation';
 
 const scrypt = promisify(scryptCallback);
-const sessionLifetime = 7 * 24 * 60 * 60 * 1000;
+export const sessionLifetime = 24 * 60 * 60 * 1000;
+export const persistentSessionLifetime = 30 * sessionLifetime;
 const supportedCategories = new Set<string>(Object.values(ServiceCategory));
 const profileFields = {
   role: true,
+  clientEnabled: true,
+  providerEnabled: true,
   verificationTier: true,
   phone: true,
   location: true,
   businessName: true,
   serviceCategories: true,
+  otherService: true,
 } satisfies Prisma.ProfileSelect;
 
 export interface OnboardingInput {
@@ -25,6 +29,7 @@ export interface OnboardingInput {
   location?: unknown;
   businessName?: unknown;
   serviceCategories?: unknown;
+  otherService?: unknown;
 }
 
 @Injectable()
@@ -167,11 +172,11 @@ export class AuthService {
     }
   }
 
-  async createSession(userId: string) {
+  async createSession(userId: string, keepSignedIn = false) {
     const account = await this.db.user.findUnique({ where: { id: userId }, select: { isSuspended: true } });
     if (!account || account.isSuspended) throw new ForbiddenException('This account is suspended. Please contact support.');
     const token = randomBytes(32).toString('base64url');
-    await this.db.session.create({ data: { tokenHash: this.hashToken(token), userId, expiresAt: new Date(Date.now() + sessionLifetime) } });
+    await this.db.session.create({ data: { tokenHash: this.hashToken(token), userId, expiresAt: new Date(Date.now() + (keepSignedIn ? persistentSessionLifetime : sessionLifetime)) } });
     return token;
   }
 
@@ -197,10 +202,13 @@ export class AuthService {
   async requireProfile(token?: string, requiredRole?: AccountRole) {
     const account = await this.currentUser(token);
     const role = account.profile?.role;
-    if (!role || role === AccountRole.admin || (requiredRole && role !== requiredRole)) {
+    const capability = requiredRole === AccountRole.client ? account.profile?.clientEnabled
+      : requiredRole === AccountRole.provider ? account.profile?.providerEnabled
+      : true;
+    if (!role || role === AccountRole.admin || !capability) {
       throw new ForbiddenException(requiredRole ? `A ${requiredRole} profile is required` : 'A completed profile is required');
     }
-    return { id: account.id, role };
+    return { id: account.id, role: requiredRole ?? role };
   }
 
   async completeOnboarding(token: string | undefined, input: OnboardingInput | undefined) {
@@ -221,6 +229,7 @@ export class AuthService {
 
     let businessName: string | null = null;
     let serviceCategories: ServiceCategory[] = [];
+    let otherService: string | null = null;
     if (role === AccountRole.provider) {
       businessName = requiredText(input.businessName, 'your business name', 120);
       const categories = input.serviceCategories;
@@ -229,12 +238,13 @@ export class AuthService {
         throw new BadRequestException('Choose at least one valid service category');
       }
       serviceCategories = [...new Set<ServiceCategory>(categories)];
+      if (serviceCategories.includes(ServiceCategory.Other)) otherService = requiredText(input.otherService, 'the service you provide', 150);
     }
 
     try {
       const [profile] = await this.db.$transaction([
         this.db.profile.create({
-          data: { userId: user.id, role, phone, location, businessName, serviceCategories },
+          data: { userId: user.id, role, clientEnabled: role === AccountRole.client, providerEnabled: role === AccountRole.provider, phone, location, businessName, serviceCategories, otherService },
           select: profileFields,
         }),
         this.db.user.update({ where: { id: user.id }, data: { name } }),
@@ -248,6 +258,32 @@ export class AuthService {
     }
   }
 
+  async switchRole(token: string | undefined, input: OnboardingInput | undefined) {
+    const user = await this.currentUser(token);
+    if (!user.profile) throw new ForbiddenException('Complete your profile first');
+    if (!input || (input.role !== AccountRole.client && input.role !== AccountRole.provider)) throw new BadRequestException('Choose a client or provider account');
+    const role = input.role;
+    const profile = user.profile;
+    if (role === AccountRole.provider && !profile.providerEnabled) {
+      const businessName = requiredText(input.businessName, 'your business name', 120);
+      const categories = input.serviceCategories;
+      if (!Array.isArray(categories) || categories.length === 0 || categories.length > supportedCategories.size ||
+          !categories.every(category => typeof category === 'string' && supportedCategories.has(category))) {
+        throw new BadRequestException('Choose at least one valid service category');
+      }
+      const serviceCategories = [...new Set<ServiceCategory>(categories)];
+      const otherService = serviceCategories.includes(ServiceCategory.Other) ? requiredText(input.otherService, 'the service you provide', 150) : null;
+      const updated = await this.db.profile.update({ where: { userId: user.id }, data: { role, providerEnabled: true, businessName, serviceCategories, otherService }, select: profileFields });
+      return { ...user, profile: updated };
+    }
+    if (role === AccountRole.client && !profile.clientEnabled) {
+      const updated = await this.db.profile.update({ where: { userId: user.id }, data: { role, clientEnabled: true }, select: profileFields });
+      return { ...user, profile: updated };
+    }
+    const updated = await this.db.profile.update({ where: { userId: user.id }, data: { role }, select: profileFields });
+    return { ...user, profile: updated };
+  }
+
   async updateProfile(token: string | undefined, input: OnboardingInput | undefined) {
     const user = await this.currentUser(token);
     if (!user.profile) throw new ForbiddenException('A completed profile is required');
@@ -259,9 +295,10 @@ export class AuthService {
       throw new BadRequestException('Enter a valid phone number');
     }
     const location = requiredText(input.location, 'your city or town', 150);
-    let businessName: string | null = user.profile.role === AccountRole.admin ? user.profile.businessName : null;
-    let serviceCategories: ServiceCategory[] = user.profile.role === AccountRole.admin ? user.profile.serviceCategories : [];
-    if (user.profile.role === AccountRole.provider) {
+    let businessName: string | null = user.profile.providerEnabled || user.profile.role === AccountRole.admin ? user.profile.businessName : null;
+    let serviceCategories: ServiceCategory[] = user.profile.providerEnabled || user.profile.role === AccountRole.admin ? user.profile.serviceCategories : [];
+    let otherService = user.profile.otherService;
+    if (user.profile.providerEnabled || user.profile.role === AccountRole.provider) {
       businessName = requiredText(input.businessName, 'your business name', 120);
       const categories = input.serviceCategories;
       if (!Array.isArray(categories) || !categories.length || categories.length > supportedCategories.size ||
@@ -269,13 +306,14 @@ export class AuthService {
         throw new BadRequestException('Choose at least one valid service category');
       }
       serviceCategories = [...new Set<ServiceCategory>(categories)];
+      otherService = serviceCategories.includes(ServiceCategory.Other) ? requiredText(input.otherService, 'the service you provide', 150) : null;
     }
     return this.db.$transaction(async tx => {
       // Serialize profile edits and verification reviews so a stale badge cannot survive an edit.
       await tx.$queryRaw`SELECT "userId" FROM "Profile" WHERE "userId" = ${user.id} FOR UPDATE`;
       const current = await tx.profile.findUniqueOrThrow({ where: { userId: user.id }, select: { phone: true, businessName: true, user: { select: { name: true } } } });
-      const mustReverify = current.user.name !== name || current.phone !== phone || (user.profile!.role === 'provider' && current.businessName !== businessName);
-      const profile = await tx.profile.update({ where: { userId: user.id }, data: { phone, location, businessName, serviceCategories, ...(mustReverify ? { verificationTier: 'Basic' as const } : {}) }, select: profileFields });
+      const mustReverify = current.user.name !== name || current.phone !== phone || (user.profile!.providerEnabled && current.businessName !== businessName);
+      const profile = await tx.profile.update({ where: { userId: user.id }, data: { phone, location, businessName, serviceCategories, otherService, ...(mustReverify ? { verificationTier: 'Basic' as const } : {}) }, select: profileFields });
       await tx.user.update({ where: { id: user.id }, data: { name } });
       return { ...user, name, profile };
     });

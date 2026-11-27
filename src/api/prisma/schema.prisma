@@ -95,17 +95,21 @@ enum ServiceCategory {
   Tutoring
   Construction
   PersonalTraining
+  Other
 }
 
 model Profile {
   userId            String            @id
   user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   role              AccountRole
+  clientEnabled     Boolean           @default(false)
+  providerEnabled   Boolean           @default(false)
   phone             String
   location          String
   businessName      String?
   workingHours      Json?
   serviceCategories ServiceCategory[] @default([])
+  otherService      String?
   listings          ServiceListing[]
   availability      AvailabilitySlot[]
   clientBookings    Booking[]

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Bell, Briefcase, CalendarDays, CircleHelp, ClipboardList, FileText, Home, LayoutDashboard, LogOut, Menu, Scale, MessageSquare, Settings, ShieldCheck, Store, LifeBuoy, X } from 'lucide-react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AppContext';
+import type { OnboardingInput } from '../types';
 import { accountHome } from '../utils/accountRoutes';
 import { inboxUnread } from '../utils/inbox';
 import { reliabilityUnread } from '../utils/reliability';
@@ -10,10 +11,13 @@ import { quoteAlerts } from '../utils/quotes';
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300';
 export default function SiteNavbar() {
-  const { currentUser, isLoading, logout, error } = useAuth();
+  const { currentUser, isLoading, logout, switchRole, error } = useAuth();
   const [open, setOpen] = useState(false);
+  const [roleError, setRoleError] = useState('');
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const profileRole = currentUser?.profile?.role;
+  const canBeProvider = currentUser?.profile?.providerEnabled ?? profileRole === 'provider';
   const role = profileRole === 'admin' ? undefined : profileRole;
   const { data: unread } = useQuery(inboxUnread(role ? currentUser!.id : ''));
   const { data: quoteNotices } = useQuery(quoteAlerts(role ? currentUser!.id : ''));
@@ -27,6 +31,23 @@ export default function SiteNavbar() {
     return () => { document.body.style.overflow = previousOverflow; };
   }, [open]);
   const adminMode = !!currentUser?.isVerificationAdmin && (profileRole === 'admin' || pathname.startsWith('/admin') || pathname.startsWith('/verification-review'));
+  async function selectRole(next: 'client' | 'provider') {
+    if (!currentUser?.profile) return;
+    if (next === 'provider' && !canBeProvider) {
+      setOpen(false);
+      navigate('/onboarding?role=provider&addRole=1');
+      return;
+    }
+    try {
+      setRoleError('');
+      const details: OnboardingInput = next === 'client'
+        ? { role: 'client', name: currentUser.name || 'My account', phone: currentUser.profile.phone, location: currentUser.profile.location }
+        : { role: 'provider', name: currentUser.name || 'My account', phone: currentUser.profile.phone, location: currentUser.profile.location, businessName: currentUser.profile.businessName || '', serviceCategories: currentUser.profile.serviceCategories, otherService: currentUser.profile.otherService ?? '' };
+      await switchRole(details);
+      setOpen(false);
+      navigate(accountHome(next));
+    } catch (err) { setRoleError(err instanceof Error ? err.message : 'Could not switch account mode'); }
+  }
   const links: { to: string; label: string; icon: typeof Home; end?: boolean; count?: number }[] = adminMode ? [
     { to: '/admin', label: 'Control centre', icon: LayoutDashboard, end: true },
     { to: '/verification-review', label: 'Verification review', icon: ShieldCheck },
@@ -59,7 +80,21 @@ export default function SiteNavbar() {
         <Icon aria-hidden="true" className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8} /><span className="flex-1">{label}</span>{!!count && <span className="rounded-full bg-emerald-300 px-2 py-0.5 text-xs text-green-900">{count > 99 ? '99+' : count}</span>}
       </NavLink>)}</div>
     </nav>
-    <div className="border-t border-home-line p-4">{!isLoading && (currentUser ? <><p className="truncate text-sm font-semibold text-home-text">{currentUser.name || 'My account'}</p><p className="mt-1 truncate text-xs text-emerald-300/70">{currentUser.email}</p><button type="button" onClick={() => { setOpen(false); void logout(); }} className={`mt-4 flex items-center gap-2 text-sm text-emerald-300 hover:text-emerald-200 ${focus}`}><LogOut aria-hidden="true" className="h-4 w-4" />Sign out</button></> : <div className="space-y-3"><Link to="/signin" className={`block text-sm font-semibold text-emerald-300 ${focus}`}>Sign in</Link><Link to="/provider-login" className={`block text-sm font-semibold text-emerald-300 ${focus}`}>List a service</Link></div>)}{error && <p role="alert" className="mt-2 text-sm text-red-300">{error}</p>}</div>
+    <div className="border-t border-home-line p-4">
+      {!isLoading && (currentUser ? <>
+        <p className="truncate text-sm font-semibold text-home-text">{currentUser.name || 'My account'}</p>
+        <p className="mt-1 truncate text-xs text-emerald-300/70">{currentUser.email}</p>
+        {currentUser.profile && profileRole !== 'admin' && <div className="mt-4">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-emerald-300/60">Switch account mode</p>
+          {profileRole === 'provider'
+            ? <button type="button" onClick={() => void selectRole('client')} className={`rounded-lg bg-home-raised px-3 py-2 text-xs font-semibold text-home-text ${focus}`}>Become a client</button>
+            : <button type="button" onClick={() => void selectRole('provider')} className={`rounded-lg bg-home-raised px-3 py-2 text-xs font-semibold text-home-text ${focus}`}>Become a provider</button>}
+        </div>}
+        <button type="button" onClick={() => { setOpen(false); void logout(); }} className={`mt-4 flex items-center gap-2 text-sm text-emerald-300 hover:text-emerald-200 ${focus}`}><LogOut aria-hidden="true" className="h-4 w-4" />Sign out</button>
+      </> : <div className="space-y-3"><Link to="/signin" className={`block text-sm font-semibold text-emerald-300 ${focus}`}>Sign in</Link><Link to="/provider-login" className={`block text-sm font-semibold text-emerald-300 ${focus}`}>List a service</Link></div>)}
+      {roleError && <p role="alert" className="mt-2 text-sm text-red-300">{roleError}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-red-300">{error}</p>}
+    </div>
   </div>;
   return <>
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-home-line md:block">{panel}</aside>

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AppContext';
 import { ServiceCategoryEnum, type AccountRole } from '../types';
 import { accountDestination } from '../utils/accountRoutes';
@@ -11,16 +11,18 @@ const roles = [
   { value: 'provider', label: 'Provider', description: 'Offer services to clients' },
 ] as const;
 
-function ProfileForm({ name }: { name: string }) {
-  const { completeOnboarding, logout, error: signOutError } = useAuth();
+function ProfileForm({ account }: { account: NonNullable<ReturnType<typeof useAuth>['currentUser']> }) {
+  const { completeOnboarding, switchRole, logout, error: signOutError } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const roleHint = searchParams.get('role');
   const [role, setRole] = useState<AccountRole>(roleHint === 'provider' ? 'provider' : 'client');
-  const [fullName, setFullName] = useState(name);
-  const [phone, setPhone] = useState('');
-  const [location, setLocation] = useState('');
-  const [businessName, setBusinessName] = useState('');
-  const [serviceCategories, setServiceCategories] = useState<ServiceCategoryEnum[]>([]);
+  const [fullName, setFullName] = useState(account.name ?? '');
+  const [phone, setPhone] = useState(account.profile?.phone ?? '');
+  const [location, setLocation] = useState(account.profile?.location ?? '');
+  const [businessName, setBusinessName] = useState(account.profile?.businessName ?? '');
+  const [serviceCategories, setServiceCategories] = useState<ServiceCategoryEnum[]>(account.profile?.serviceCategories ?? []);
+  const [otherService, setOtherService] = useState(account.profile?.otherService ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -35,9 +37,10 @@ function ProfileForm({ name }: { name: string }) {
     setError('');
     const contact = { name: fullName, phone, location };
     try {
-      await completeOnboarding(role === 'client'
-        ? { ...contact, role }
-        : { ...contact, role, businessName, serviceCategories });
+      const input = role === 'client' ? { ...contact, role } as const : { ...contact, role, businessName, serviceCategories, otherService } as const;
+      if (account.profile) await switchRole(input);
+      else await completeOnboarding(input);
+      navigate(role === 'provider' ? '/provider-dashboard' : '/dashboard', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save your profile');
     } finally {
@@ -108,6 +111,9 @@ function ProfileForm({ name }: { name: string }) {
                       </label>
                     ))}
                   </div>
+                  {serviceCategories.includes(ServiceCategoryEnum.Other) && <label className="mt-3 block">What service do you provide?
+                    <input className={inputClass} required maxLength={150} value={otherService} onChange={event => setOtherService(event.target.value)} />
+                  </label>}
                 </fieldset>
               </>
             )}
@@ -132,6 +138,6 @@ export default function Onboarding() {
     return <p role="status" className="bg-gray-900 min-h-screen p-8 text-white">Loading your account…</p>;
   }
   if (!currentUser) return <Navigate to={params.size ? `/signin?${params}` : '/signin'} replace />;
-  if (currentUser.profile) return <Navigate to={accountDestination(currentUser.profile.role, params)} replace />;
-  return <ProfileForm key={currentUser.id} name={currentUser.name ?? ''} />;
+  if (currentUser.profile && params.get('addRole') !== '1') return <Navigate to={accountDestination(currentUser.profile.role, params)} replace />;
+  return <ProfileForm key={currentUser.id} account={currentUser} />;
 }

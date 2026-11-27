@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Account, OnboardingInput } from '../types';
 import { apiRequest } from '../utils/apiRequest';
 import { getServiceCategoryStrings } from '../utils/serviceUtils';
@@ -8,12 +9,13 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, keepSignedIn?: boolean) => Promise<void>;
+  register: (name: string, email: string, password: string, keepSignedIn?: boolean) => Promise<void>;
   completeOnboarding: (input: OnboardingInput) => Promise<void>;
+  switchRole: (input: OnboardingInput) => Promise<void>;
   updateProfile: (input: Omit<OnboardingInput, 'role'>) => Promise<void>;
   logout: () => Promise<void>;
-  googleLogin: () => void;
+  googleLogin: (keepSignedIn?: boolean) => void;
 }
 
 const AuthContext = createContext<any>(null);
@@ -23,6 +25,7 @@ const unavailable = async (..._args: any[]): Promise<any> => {
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState<Account | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,16 +34,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     apiRequest<Account>('/auth/me').then(setCurrentUser).catch(() => setCurrentUser(null)).finally(() => setIsLoading(false));
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const user = await apiRequest<Account>('/auth/login', { method: 'POST', data: { email, password } });
+  const login = async (email: string, password: string, keepSignedIn = false) => {
+    const user = await apiRequest<Account>('/auth/login', { method: 'POST', data: { email, password, keepSignedIn } });
     setCurrentUser(user);
   };
-  const register = async (name: string, email: string, password: string) => {
-    const user = await apiRequest<Account>('/auth/register', { method: 'POST', data: { name, email, password } });
+  const register = async (name: string, email: string, password: string, keepSignedIn = false) => {
+    const user = await apiRequest<Account>('/auth/register', { method: 'POST', data: { name, email, password, keepSignedIn } });
     setCurrentUser(user);
   };
   const completeOnboarding = async (input: OnboardingInput) => {
     const user = await apiRequest<Account>('/auth/onboarding', { method: 'POST', data: input });
+    setCurrentUser(user);
+  };
+  const switchRole = async (input: OnboardingInput) => {
+    const user = await apiRequest<Account>('/auth/switch-role', { method: 'POST', data: input });
+    await queryClient.cancelQueries();
+    queryClient.clear();
     setCurrentUser(user);
   };
   const updateProfile = async (input: Omit<OnboardingInput, 'role'>) => {
@@ -52,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try { await apiRequest('/auth/logout', { method: 'POST' }); setCurrentUser(null); }
     catch (err) { setError(err instanceof Error ? err.message : 'Could not sign out'); }
   };
-  const googleLogin = () => { window.location.href = '/api/auth/google'; };
+  const googleLogin = (keepSignedIn = false) => { window.location.href = `/api/auth/google?keepSignedIn=${keepSignedIn}`; };
   const getUserProfile = useCallback(async () => {
     if (!currentUser) return null;
     const { profile, ...account } = currentUser;
@@ -60,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [currentUser]);
 
   const auth: AuthState = {
-    currentUser, isAuthenticated: !!currentUser, isLoading, error, login, register, completeOnboarding, updateProfile, logout, googleLogin,
+    currentUser, isAuthenticated: !!currentUser, isLoading, error, login, register, completeOnboarding, switchRole, updateProfile, logout, googleLogin,
   };
   const categories = getServiceCategoryStrings();
   const value = {

@@ -6,9 +6,11 @@ The application uses React and TypeScript for the frontend, with a NestJS API an
 
 Install frontend dependencies with `pnpm install` at the repository root. Install API dependencies with `npm ci --prefix src/api`. Use Node.js 20 or newer and a running PostgreSQL database.
 
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the Vercel project settings, production environment variables, and safe migration/deployment order.
+
 Copy `src/api/.env.example` to `src/api/.env` and set `DATABASE_URL`. Run `npm run db:migrate` from the repository root, then start the API with `npm run dev:api`. In a second terminal, start the frontend with `npm run dev` and open `http://localhost:3000`.
 
-Email and password accounts are available. To enable Google sign-in, set the Google client ID and secret in `src/api/.env` and register `http://localhost:3001/auth/google/callback` as an authorized redirect URI. Adjust the frontend and API URLs in the environment for other deployments.
+Email and password accounts are available. To enable Google sign-in, set the Google client ID and secret in `src/api/.env` and register `http://localhost:3000/api/auth/google/callback` as an authorized redirect URI. Adjust the frontend URL for other deployments.
 
 After signing in, new and existing accounts without a profile can choose Client or Provider and complete their profile. Profiles are saved in PostgreSQL and users are sent to their dashboard. Each account has one role.
 
@@ -36,4 +38,4 @@ The NestJS API reads `DATABASE_URL` from `src/api/.env`. Prisma migrations creat
 
 This workspace’s local database is `doit` on `127.0.0.1:55432`. Its data directory is `src/api/.postgres/data`. Use the existing `src/api/.env` to keep connecting to this database. On another installation, create a project database and set `DATABASE_URL` to its connection string before running `npm run db:migrate`.
 
-The app saves marketplace records as users work. A new database starts empty. Account settings support profile updates and password changes. Notification delivery preferences, privacy controls, profile photos, language and time zone settings are not yet available. Legacy ICP imports require a verified export.
+The app saves marketplace records as users work. A new database starts empty. Account settings support profile updates, password changes, and in-app notification preferences. Email and push notification delivery, privacy controls, and language and time zone settings are not yet available. Legacy ICP imports require a verified export.

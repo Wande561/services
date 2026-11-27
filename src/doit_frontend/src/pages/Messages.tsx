@@ -26,7 +26,7 @@ function ConversationPanel({ accountId, bookingId }: { accountId: string; bookin
 
   useEffect(() => {
     const batches = thread.data?.pages
-      .map(page => page.items.filter(message => !message.mine && !message.read).map(message => message.id))
+      .map(page => page.items.filter(message => message.kind === 'message' && !message.mine && !message.read).map(message => message.id))
       .filter(ids => ids.length > 0);
     if (batches?.length) markSeen(batches);
   }, [thread.data, markSeen]);
@@ -63,8 +63,10 @@ function ConversationPanel({ accountId, bookingId }: { accountId: string; bookin
               <button type="button" disabled={thread.isFetching} className="text-sm text-orange-300 hover:underline"
                 onClick={() => thread.fetchNextPage()}>Load earlier messages</button>
             )}
-            {openingPage.items.length === 0 && <p className="text-sm text-gray-300">No messages yet. Start the conversation below.</p>}
-            {thread.data.pages.slice().reverse().flatMap(page => page.items.slice().reverse()).map(message => (
+            {openingPage.items.length === 0 && <p className="text-sm text-gray-300">No messages yet.</p>}
+            {thread.data.pages.slice().reverse().flatMap(page => page.items.slice().reverse()).map(message => message.kind !== 'message' ? (
+              <div key={message.id} className="text-center text-xs text-gray-300"><span className="inline-block rounded-full bg-gray-700 px-3 py-1">{message.body} · {formatInboxTime(message.createdAt)}</span></div>
+            ) : (
               <div key={message.id} className={`flex ${message.mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-xl px-3 py-2 ${message.mine ? 'bg-orange-900/60' : 'bg-gray-700'}`}>
                   <p className="whitespace-pre-wrap break-words">{message.body}</p>
@@ -75,7 +77,7 @@ function ConversationPanel({ accountId, bookingId }: { accountId: string; bookin
               </div>
             ))}
           </div>
-          <form className="space-y-3 border-t border-gray-700 p-4" onSubmit={submit}>
+          {openingPage.closed ? <p className="border-t border-gray-700 p-4 text-sm text-gray-300">This conversation is closed. You can message again when another booking is created.</p> : <form className="space-y-3 border-t border-gray-700 p-4" onSubmit={submit}>
             <label className="block text-sm font-medium" htmlFor="message-body">Message</label>
             <textarea id="message-body" rows={3} required maxLength={2000} value={draft} disabled={send.isPending}
               onChange={event => setDraft(event.target.value)} className="w-full rounded-lg border border-gray-600 bg-gray-900 p-3" />
@@ -87,7 +89,7 @@ function ConversationPanel({ accountId, bookingId }: { accountId: string; bookin
             <button type="submit" disabled={send.isPending || !draft.trim()} className="btn-primary disabled:opacity-50">
               {send.isPending ? 'Sending…' : 'Send message'}
             </button>
-          </form>
+          </form>}
         </>
       )}
     </section>
@@ -107,7 +109,7 @@ export default function Messages() {
         <header className="workspace-page-header mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <Link to={accountHome(currentUser?.profile?.role)} className="text-sm text-orange-300 hover:underline">← Dashboard</Link>
-            <p className="workspace-eyebrow">YOUR WORKSPACE / CONVERSATIONS</p><h1 className="mt-2 text-3xl font-bold">Messages</h1><p className="mt-2 text-sm text-emerald-300">Keep in touch about your active bookings.</p>
+            <p className="workspace-eyebrow">YOUR WORKSPACE / CONVERSATIONS</p><h1 className="mt-2 text-3xl font-bold">Messages</h1><p className="mt-2 text-sm text-emerald-300">View your booking conversations and message history.</p>
           </div>
           <Link to="/bookings" className="btn-secondary">View bookings</Link>
         </header>
@@ -129,7 +131,7 @@ export default function Messages() {
                       {thread.unread > 0 && <span className="shrink-0 text-xs text-orange-200">{thread.unread} unread</span>}
                     </div>
                     <p className="truncate text-sm text-gray-300">{thread.serviceTitle}</p>
-                    <p className="mt-1 truncate text-xs text-gray-400">{thread.latest.mine ? 'You: ' : ''}{thread.latest.body}</p>
+                    <p className="mt-1 truncate text-xs text-gray-400">{thread.latest.kind === 'message' && thread.latest.mine ? 'You: ' : ''}{thread.latest.body}{thread.closed ? ' · Closed' : ''}</p>
                   </Link>
                 </li>
               ))}

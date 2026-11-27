@@ -8,14 +8,14 @@ export class ProvidersService {
   constructor(private readonly db: PrismaService) {}
 
   async publicProfile(id: string) {
-    const profile = await this.db.profile.findFirst({ where: { userId: id, role: 'provider', listings: { some: { isPublished: true } } }, select: {
-      businessName: true, location: true, serviceCategories: true, verificationTier: true, workingHours: true,
+    const profile = await this.db.profile.findFirst({ where: { userId: id, providerEnabled: true, listings: { some: { isPublished: true } } }, select: {
+      businessName: true, location: true, serviceCategories: true, otherService: true, verificationTier: true, workingHours: true,
       user: { select: { name: true } },
       listings: { where: { isPublished: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], select: listingFields },
     } });
     if (!profile) throw new NotFoundException('Provider profile not found');
     const reviews = await this.db.review.aggregate({ where: { booking: { slot: { providerId: id } } }, _avg: { rating: true }, _count: { rating: true } });
-    return { id, name: profile.businessName || profile.user.name || 'Provider', location: profile.location, serviceCategories: profile.serviceCategories, verificationTier: profile.verificationTier, workingHours: profile.workingHours, listings: profile.listings.map(formatListing), averageRating: reviews._avg.rating, reviewCount: reviews._count.rating };
+    return { id, name: profile.businessName || profile.user.name || 'Provider', location: profile.location, serviceCategories: profile.serviceCategories, otherService: profile.otherService, verificationTier: profile.verificationTier, workingHours: profile.workingHours, listings: profile.listings.map(formatListing), averageRating: reviews._avg.rating, reviewCount: reviews._count.rating };
   }
 
   async hours(id: string) {

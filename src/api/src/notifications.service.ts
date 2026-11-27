@@ -88,9 +88,9 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   async unread(accountId: string, role: AccountRole) {
     const kinds = await this.enabledKinds(accountId);
     const [notifications, messages] = await this.db.$transaction([
-      this.db.notification.count({ where: { recipientId: accountId, readAt: null, kind: { in: kinds as any }, NOT: { kind: 'MessageReceived', booking: { status: 'Completed' } } } }),
+      this.db.notification.count({ where: { recipientId: accountId, readAt: null, kind: { in: kinds as any } } }),
       this.db.message.count({
-        where: { senderId: { not: accountId }, readAt: null, booking: { ...bookingOwnership(accountId, role), status: { not: 'Completed' } } },
+        where: { senderId: { not: accountId }, readAt: null, booking: bookingOwnership(accountId, role) },
       }),
     ], { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
     return { notifications, messages };
@@ -107,7 +107,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       cursor = { id };
     }
     const records = await this.db.notification.findMany({
-      where: { recipientId, kind: { in: kinds as any }, NOT: { kind: 'MessageReceived', booking: { status: 'Completed' } } },
+      where: { recipientId, kind: { in: kinds as any } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: pageSize + 1,
       ...(cursor && { cursor, skip: 1 }),

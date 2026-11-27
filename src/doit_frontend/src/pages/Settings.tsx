@@ -27,6 +27,7 @@ export default function Settings() {
   const [location, setLocation] = useState(profile.location);
   const [businessName, setBusinessName] = useState(profile.businessName ?? '');
   const [categories, setCategories] = useState(profile.serviceCategories);
+  const [otherService, setOtherService] = useState(profile.otherService ?? '');
   const [profileBusy, setProfileBusy] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
@@ -42,13 +43,13 @@ export default function Settings() {
     event.preventDefault();
     setProfileError('');
     setProfileMessage('');
-    if (profile.role === 'provider' && categories.length === 0) {
+    if (profile.providerEnabled && categories.length === 0) {
       setProfileError('Choose at least one service category.');
       return;
     }
     setProfileBusy(true);
     try {
-      await updateProfile({ name, phone, location, ...(profile.role === 'provider' && { businessName, serviceCategories: categories }) });
+      await updateProfile({ name, phone, location, ...(profile.providerEnabled && { businessName, serviceCategories: categories, otherService }) });
       await cache.invalidateQueries({ queryKey: verificationKey });
       setProfileMessage('Your profile has been saved.');
     } catch (error) {
@@ -90,8 +91,8 @@ export default function Settings() {
     <div className="account-content">
       {section === 'profile' && <form id="profile-settings" onSubmit={saveProfile} className="account-card"><div className="account-card__head"><div><span className="account-section-label">01 / PROFILE</span><h2>Personal details</h2><p>Update the details associated with your account.</p></div><span className="account-card__icon"><UserRound aria-hidden="true" /></span></div>
         <div className="account-fields"><label>Full name<input className={field} required maxLength={100} autoComplete="name" value={name} onChange={e => setName(e.target.value)} /></label><label>Email address<input className={field} type="email" value={currentUser!.email} readOnly aria-describedby="email-help" /><small id="email-help">Email changes are not available yet.</small></label><label>Phone number<input className={field} type="tel" required maxLength={32} autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)} /></label><label>City or town<input className={field} required maxLength={150} autoComplete="address-level2" value={location} onChange={e => setLocation(e.target.value)} /></label></div>
-        {profile.role === 'provider' && <div className="account-business"><div className="account-section-title"><span>BUSINESS PROFILE</span><p>Help clients understand what you offer.</p></div><label>Business name<input className={field} required maxLength={120} autoComplete="organization" value={businessName} onChange={e => setBusinessName(e.target.value)} /></label><fieldset><legend>Service categories</legend><div className="account-categories">{Object.values(ServiceCategoryEnum).map(category => <label key={category} className={categories.includes(category) ? 'is-selected' : ''}><input type="checkbox" checked={categories.includes(category)} onChange={e => setCategories(previous => e.target.checked ? [...previous, category] : previous.filter(value => value !== category))} /><span>{categoryLabel(category)}</span>{categories.includes(category) && <Check aria-hidden="true" />}</label>)}</div></fieldset></div>}
-        {verified && <p className="account-note">Changing your name, phone number{profile.role === 'provider' ? ' or business name' : ''} will require a new verification review.</p>}
+        {profile.providerEnabled && <div className="account-business"><div className="account-section-title"><span>BUSINESS PROFILE</span><p>Help clients understand what you offer.</p></div><label>Business name<input className={field} required maxLength={120} autoComplete="organization" value={businessName} onChange={e => setBusinessName(e.target.value)} /></label><fieldset><legend>Service categories</legend><div className="account-categories">{Object.values(ServiceCategoryEnum).map(category => <label key={category} className={categories.includes(category) ? 'is-selected' : ''}><input type="checkbox" checked={categories.includes(category)} onChange={e => setCategories(previous => e.target.checked ? [...previous, category] : previous.filter(value => value !== category))} /><span>{categoryLabel(category)}</span>{categories.includes(category) && <Check aria-hidden="true" />}</label>)}</div></fieldset>{categories.includes(ServiceCategoryEnum.Other) && <label>What service do you provide?<input className={field} required maxLength={150} value={otherService} onChange={e => setOtherService(e.target.value)} /></label>}</div>}
+        {verified && <p className="account-note">Changing your name, phone number{profile.providerEnabled ? ' or business name' : ''} will require a new verification review.</p>}
         <div className="account-actions">{profileError && <p role="alert" className="account-error">{profileError}</p>}{profileMessage && <p role="status" className="account-success">{profileMessage}</p>}<button className="account-save" disabled={profileBusy}>{profileBusy ? 'Saving…' : 'Save changes'} <ArrowRight aria-hidden="true" /></button></div>
       </form>}
       {section === 'verification' && profile.role !== 'admin' && <div id="verification-settings" className="account-verification"><ProviderVerification /></div>}

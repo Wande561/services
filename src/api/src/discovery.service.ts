@@ -16,7 +16,7 @@ export class DiscoveryService {
   }
   async setProvider(clientId: string, providerId: string, saved: boolean) {
     if (saved) {
-      if (!await this.db.profile.findFirst({ where: { userId: providerId, role: 'provider', listings: { some: { isPublished: true } } }, select: { userId: true } })) throw new NotFoundException('Provider not found');
+      if (!await this.db.profile.findFirst({ where: { userId: providerId, providerEnabled: true, listings: { some: { isPublished: true } } }, select: { userId: true } })) throw new NotFoundException('Provider not found');
       await this.db.clientFavoriteProvider.upsert({ where: { clientId_providerId: { clientId, providerId } }, create: { clientId, providerId }, update: {} });
     } else await this.db.clientFavoriteProvider.deleteMany({ where: { clientId, providerId } });
     return { saved };
@@ -34,7 +34,7 @@ export class DiscoveryService {
     const profile = await this.db.profile.findUniqueOrThrow({ where: { userId: clientId }, select: { location: true } });
     const [favoriteRows, providerRows, viewedRows, quoteInterests] = await this.db.$transaction([
       this.db.clientFavoriteListing.findMany({ where: { clientId, listing: { isPublished: true } }, orderBy: { createdAt: 'desc' }, select: { listing: { select: listingFields } } }),
-      this.db.clientFavoriteProvider.findMany({ where: { clientId, provider: { role: 'provider', listings: { some: { isPublished: true } } } }, orderBy: { createdAt: 'desc' }, select: { provider: { select: { userId: true, businessName: true, location: true, verificationTier: true, user: { select: { name: true } } } } } }),
+      this.db.clientFavoriteProvider.findMany({ where: { clientId, provider: { providerEnabled: true, listings: { some: { isPublished: true } } } }, orderBy: { createdAt: 'desc' }, select: { provider: { select: { userId: true, businessName: true, location: true, verificationTier: true, user: { select: { name: true } } } } } }),
       this.db.clientListingView.findMany({ where: { clientId, listing: { isPublished: true } }, orderBy: { viewedAt: 'desc' }, take: 12, select: { listing: { select: listingFields } } }),
       this.db.quoteRequest.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' }, take: 30, select: { listing: { select: { category: true } } } }),
     ]);

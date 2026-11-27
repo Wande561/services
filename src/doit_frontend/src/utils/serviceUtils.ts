@@ -13,6 +13,7 @@ export const serviceCategoryToString = (category: ServiceCategory): string => {
   if ('Tutoring' in category) return 'Tutoring';
   if ('Construction' in category) return 'Construction';
   if ('PersonalTraining' in category) return 'Personal Training';
+  if ('Other' in category) return 'Other';
   return 'Unknown';
 };
 
@@ -30,6 +31,7 @@ export const stringToServiceCategory = (categoryStr: string): ServiceCategory =>
     case 'tutoring': return { 'Tutoring': null };
     case 'construction': return { 'Construction': null };
     case 'personaltraining': return { 'PersonalTraining': null };
+    case 'other': return { 'Other': null };
     default: return { 'Plumbing': null };
   }
 };
@@ -50,6 +52,7 @@ export const getServiceCategoryStrings = (): string[] => {
     'Pet Grooming',
     'Tutoring',
     'Construction',
-    'Personal Training'
+    'Personal Training',
+    'Other'
   ];
 };

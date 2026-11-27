@@ -2,9 +2,9 @@
 
 The NestJS API supports accounts, sessions, onboarding, service listings, availability, bookings, messaging, notifications, and reviews.
 
-Use Node.js 18 or newer and PostgreSQL. Install dependencies with `npm ci`, copy `.env.example` to `.env`, set `DATABASE_URL`, and run `npx prisma migrate deploy`. Start the service with `npm run start:dev` or build with `npm run build` and run `npm start`.
+Use Node.js 20 or newer and PostgreSQL. Install dependencies with `npm ci`, copy `.env.example` to `.env`, set `DATABASE_URL`, and run `npx prisma migrate deploy`. Start the service with `npm run start:dev` or build with `npm run build` and run `npm start`.
 
-For Google sign-in, configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `API_URL`, and `FRONTEND_URL`. Register `API_URL/auth/google/callback` as an authorized redirect URI in Google Cloud.
+For Google sign-in, configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `FRONTEND_URL`. Register `FRONTEND_URL/api/auth/google/callback` as an authorized redirect URI in Google Cloud. The frontend rewrite forwards that path to the API. Set `GOOGLE_REDIRECT_URI` only if using a different callback URL; `API_URL` is not read by the API.
 
 Password recovery uses Resend. Configure `RESEND_API_KEY` and a verified sender address in `MAIL_FROM`; reset links are sent to `FRONTEND_URL/reset-password` and expire after 30 minutes. Without these settings, reset requests still return a neutral response but no email is delivered.
 

@@ -8,7 +8,8 @@ export enum ServiceCategoryEnum {
   PetGrooming = 'PetGrooming',
   Tutoring = 'Tutoring',
   Construction = 'Construction',
-  PersonalTraining = 'PersonalTraining'
+  PersonalTraining = 'PersonalTraining',
+  Other = 'Other'
 }
 
 export type AccountRole = 'client' | 'provider';
@@ -18,10 +19,13 @@ export type VerificationTier = 'Basic' | 'IdentityVerified' | 'BusinessVerified'
 export interface AccountProfile {
   verificationTier: VerificationTier;
   role: ProfileRole;
+  clientEnabled: boolean;
+  providerEnabled: boolean;
   phone: string;
   location: string;
   businessName: string | null;
   serviceCategories: ServiceCategoryEnum[];
+  otherService: string | null;
 }
 
 export interface Account {
@@ -36,7 +40,7 @@ type ContactDetails = Pick<AccountProfile, 'phone' | 'location'> & { name: strin
 
 export type OnboardingInput = ContactDetails & (
   | { role: 'client' }
-  | { role: 'provider'; businessName: string; serviceCategories: ServiceCategoryEnum[] }
+  | { role: 'provider'; businessName: string; serviceCategories: ServiceCategoryEnum[]; otherService?: string }
 );
 
 export type PriceUnit = 'PerHour' | 'PerSession' | 'PerProject' | 'PerSquareMeter';
@@ -123,10 +127,13 @@ export interface BookingMessage {
   createdAt: string;
   mine: boolean;
   read: boolean;
+  kind: 'message' | 'booking-created' | 'booking-completed';
 }
 
 export interface MessageThread {
   bookingId: string;
+  activeBookingId: string | null;
+  closed: boolean;
   serviceTitle: string;
   contactName: string;
 }

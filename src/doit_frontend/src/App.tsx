@@ -44,6 +44,8 @@ function RequireProfile({ role }: { role?: AccountRole }) {
   if (!currentUser) return <Navigate to={params.size ? `/signin?${params}` : '/signin'} replace />;
   if (currentUser.profile?.role === 'admin' && !location.pathname.startsWith('/admin') && !['/verification-review', '/settings'].includes(location.pathname)) return <Navigate to="/admin" replace />;
   if (!currentUser.profile) return <Navigate to={accountDestination(undefined, params)} replace />;
+  // Dashboard data follows the selected mode, so a dual-role account must switch
+  // modes before opening the other dashboard.
   if (role && currentUser.profile.role !== role) {
     return <Navigate to={accountHome(currentUser.profile.role)} replace />;
   }

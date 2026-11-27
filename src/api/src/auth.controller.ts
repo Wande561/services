@@ -1,7 +1,7 @@
 import { Body, ConflictException, Controller, ForbiddenException, Get, Header, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import type { Request, Response } from 'express';
-import { AuthService, type OnboardingInput } from './auth.service';
+import { AuthService, persistentSessionLifetime, type OnboardingInput } from './auth.service';
 import { checkFrontendOrigin } from './request-validation';
 
 @Controller('auth')
@@ -12,9 +12,10 @@ export class AuthController {
     return { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const, maxAge, path: '/' };
   }
 
-  private async signIn(userId: string, res: Response) {
-    const token = await this.auth.createSession(userId);
-    res.cookie('session', token, this.cookieOptions(7 * 24 * 60 * 60 * 1000));
+  private async signIn(userId: string, res: Response, keepSignedIn = false) {
+    const token = await this.auth.createSession(userId, keepSignedIn);
+    const { maxAge: _maxAge, ...sessionCookie } = this.cookieOptions(0);
+    res.cookie('session', token, keepSignedIn ? this.cookieOptions(persistentSessionLifetime) : sessionCookie);
     return this.auth.currentUser(token);
   }
 
@@ -22,14 +23,14 @@ export class AuthController {
   async register(@Body() body: any, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     checkFrontendOrigin(req.get('origin'));
     const user = await this.auth.register(body?.email, body?.password, body?.name);
-    return this.signIn(user.id, res);
+    return this.signIn(user.id, res, body?.keepSignedIn === true);
   }
 
   @Post('login')
   async login(@Body() body: any, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     checkFrontendOrigin(req.get('origin'));
     const user = await this.auth.login(body?.email, body?.password);
-    return this.signIn(user.id, res);
+    return this.signIn(user.id, res, body?.keepSignedIn === true);
   }
 
   @Post('password-reset/request')
@@ -51,6 +52,12 @@ export class AuthController {
   completeOnboarding(@Body() body: OnboardingInput, @Req() req: Request) {
     checkFrontendOrigin(req.get('origin'));
     return this.auth.completeOnboarding(req.cookies?.session, body);
+  }
+
+  @Post('switch-role')
+  switchRole(@Body() body: OnboardingInput, @Req() req: Request) {
+    checkFrontendOrigin(req.get('origin'));
+    return this.auth.switchRole(req.cookies?.session, body);
   }
 
   @Patch('profile')
@@ -86,7 +93,7 @@ export class AuthController {
   }
 
   @Get('google')
-  async google(@Res() res: Response) {
+  async google(@Res() res: Response, @Query('keepSignedIn') keepSignedIn?: string) {
     if (!this.auth.googleConfigured()) return this.googleFailure(res, 'not_configured');
     try {
       const client = this.auth.googleClient();
@@ -94,6 +101,7 @@ export class AuthController {
       const { codeVerifier, codeChallenge } = await client.generateCodeVerifierAsync();
       res.cookie('oauth_state', state, this.cookieOptions(10 * 60 * 1000));
       res.cookie('oauth_verifier', codeVerifier, this.cookieOptions(10 * 60 * 1000));
+      res.cookie('oauth_remember', keepSignedIn === 'true' ? '1' : '0', this.cookieOptions(10 * 60 * 1000));
       return res.redirect(client.generateAuthUrl({ scope: ['openid', 'email', 'profile'], state, code_challenge: codeChallenge, code_challenge_method: 'S256' as any }));
     } catch {
       return this.googleFailure(res, 'unavailable');
@@ -104,8 +112,10 @@ export class AuthController {
   async googleCallback(@Query('code') code: string, @Query('state') state: string, @Req() req: Request, @Res() res: Response, @Query('error') providerError?: string) {
     const savedState = req.cookies?.oauth_state;
     const verifier = req.cookies?.oauth_verifier;
+    const keepSignedIn = req.cookies?.oauth_remember === '1';
     res.clearCookie('oauth_state', this.cookieOptions(0));
     res.clearCookie('oauth_verifier', this.cookieOptions(0));
+    res.clearCookie('oauth_remember', this.cookieOptions(0));
     if (typeof state !== 'string' || typeof savedState !== 'string' || typeof verifier !== 'string') return this.googleFailure(res, 'invalid_state');
     const actual = Buffer.from(state);
     const expected = Buffer.from(savedState);
@@ -114,7 +124,7 @@ export class AuthController {
     if (typeof code !== 'string' || !code) return this.googleFailure(res, 'invalid_response');
     try {
       const user = await this.auth.googleUser(code, verifier);
-      await this.signIn(user.id, res);
+      await this.signIn(user.id, res, keepSignedIn);
       return res.redirect(process.env.FRONTEND_URL || 'http://localhost:3000');
     } catch (error) {
       if (error instanceof ConflictException) return this.googleFailure(res, 'existing_account');
