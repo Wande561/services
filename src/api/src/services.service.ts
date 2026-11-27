@@ -3,6 +3,7 @@ import { PriceUnit, Prisma, ServiceCategory } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { imageData } from './photo-validation';
 import { requiredText } from './request-validation';
+import { ObjectStorageService } from './object-storage.service';
 
 const pageSize = 24;
 const maxDatabaseInteger = 2_147_483_647;
@@ -86,7 +87,7 @@ function listingData(input: ListingInput) {
 
 @Injectable()
 export class ServicesService {
-  constructor(private readonly db: PrismaService) {}
+  constructor(private readonly db: PrismaService, private readonly storage: ObjectStorageService) {}
 
   async search(query: Record<string, unknown>, excludeProviderId?: string) {
     const search = optionalText(query.search, 'a search term', 120);
@@ -166,19 +167,36 @@ export class ServicesService {
   async create(providerId: string, input: ListingInput) {
     const data = listingData(input);
     const photos = this.photoInput(input, []);
-    const record = await this.db.serviceListing.create({ data: { ...data, description: data.description ?? '', providerId, photos: { create: photos.add } }, select: listingFields });
-    return formatListing(record);
+    const stored = await this.storePhotos(photos.add);
+    try {
+      const record = await this.db.serviceListing.create({ data: { ...data, description: data.description ?? '', providerId, photos: { create: stored } }, select: listingFields });
+      return formatListing(record);
+    } catch (error) {
+      await this.storage.deleteMany(stored.map(photo => photo.storageKey)).catch(() => undefined);
+      throw error;
+    }
   }
 
   async update(providerId: string, id: string, input: ListingInput) {
     const data = listingData(input);
-    return this.db.$transaction(async tx => {
-      const listing = await tx.serviceListing.findFirst({ where: { id, providerId }, select: { photos: { select: { id: true } } } });
-      if (!listing) throw new NotFoundException('Listing not found');
-      const photos = this.photoInput(input, listing.photos.map(photo => photo.id));
-      const record = await tx.serviceListing.update({ where: { id, providerId }, data: { ...data, photos: { deleteMany: { id: { notIn: photos.keep } }, create: photos.add } }, select: listingFields });
+    const listing = await this.db.serviceListing.findFirst({ where: { id, providerId }, select: { photos: { select: { id: true, storageKey: true } } } });
+    if (!listing) throw new NotFoundException('Listing not found');
+    const photos = this.photoInput(input, listing.photos.map(photo => photo.id));
+    const stored = await this.storePhotos(photos.add);
+    try {
+      const record = await this.db.$transaction(async tx => {
+        const current = await tx.serviceListing.findFirst({ where: { id, providerId }, select: { photos: { select: { id: true } } } });
+        if (!current) throw new NotFoundException('Listing not found');
+        this.photoInput(input, current.photos.map(photo => photo.id));
+        return tx.serviceListing.update({ where: { id, providerId }, data: { ...data, photos: { deleteMany: { id: { notIn: photos.keep } }, create: stored } }, select: listingFields });
+      });
+      const removedKeys = listing.photos.filter(photo => !photos.keep.includes(photo.id)).map(photo => photo.storageKey);
+      await this.storage.deleteMany(removedKeys).catch(error => console.warn('Could not remove replaced listing files from object storage.', error));
       return formatListing(record);
-    });
+    } catch (error) {
+      await this.storage.deleteMany(stored.map(photo => photo.storageKey)).catch(() => undefined);
+      throw error;
+    }
   }
 
   private photoInput(input: ListingInput, existing: string[]) {
@@ -188,10 +206,24 @@ export class ServicesService {
     return { keep: keep as string[], add: values.map(imageData) };
   }
 
+  private async storePhotos(photos: Array<{ mimeType: string; image: Buffer }>) {
+    const stored: Array<{ mimeType: string; image: Buffer | null; storageKey: string | null }> = [];
+    try {
+      for (const photo of photos) {
+        const file = await this.storage.store('listing', photo.mimeType, photo.image);
+        stored.push({ mimeType: photo.mimeType, image: file.legacyData, storageKey: file.storageKey });
+      }
+    } catch (error) {
+      await this.storage.deleteMany(stored.map(photo => photo.storageKey)).catch(() => undefined);
+      throw error;
+    }
+    return stored;
+  }
+
   async photo(id: string, viewerId?: string) {
-    const photo = await this.db.listingPhoto.findFirst({ where: { id, OR: [{ listing: { isPublished: true } }, ...(viewerId ? [{ listing: { providerId: viewerId } }] : [])] }, select: { image: true, mimeType: true } });
+    const photo = await this.db.listingPhoto.findFirst({ where: { id, OR: [{ listing: { isPublished: true } }, ...(viewerId ? [{ listing: { providerId: viewerId } }] : [])] }, select: { image: true, storageKey: true, mimeType: true } });
     if (!photo) throw new NotFoundException('Photo not found');
-    return photo;
+    return { mimeType: photo.mimeType, image: await this.storage.read(photo.storageKey, photo.image, 'Photo') };
   }
 
   setPublication(providerId: string, id: string, isPublished: unknown) {

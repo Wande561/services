@@ -5,6 +5,7 @@ import { PrismaService } from './prisma.service';
 import { requiredText } from './request-validation';
 import { calculateQuotation } from './quote-calculation';
 import { lockProfiles } from './bookings.service';
+import { ObjectStorageService } from './object-storage.service';
 
 const selection = {
   id: true, clientId: true, providerId: true, listingId: true, description: true, preferredAt: true,
@@ -50,7 +51,7 @@ function photos(value: unknown) {
 
 @Injectable()
 export class QuotesService {
-  constructor(private readonly db: PrismaService) {}
+  constructor(private readonly db: PrismaService, private readonly storage: ObjectStorageService) {}
   private async withClientRatings(requests: Prisma.QuoteRequestGetPayload<{ select: typeof selection }>[]) {
     const ids = [...new Set(requests.map(request => request.clientId))];
     if (!ids.length) return [];
@@ -62,6 +63,7 @@ export class QuotesService {
     const requests = await this.db.quoteRequest.findMany({ where: role === 'client' ? { clientId: id } : { providerId: id }, select: selection, orderBy: { createdAt: 'desc' } });
     return role === 'provider' ? this.withClientRatings(requests) : requests;
   }
+
   async get(id: string, role: AccountRole, requestId: string) {
     const result = await this.db.quoteRequest.findFirst({ where: { id: requestId, ...(role === 'client' ? { clientId: id } : { providerId: id }) }, select: selection });
     if (!result) throw new NotFoundException('Quote request not found');
@@ -81,23 +83,38 @@ export class QuotesService {
     const additionalInfo = optional(body?.additionalInfo, 'additional information', 1000);
     const images = photos(body?.photos);
     const referencePhotoId = body?.referencePhotoId == null || body.referencePhotoId === '' ? null : requiredText(body.referencePhotoId, 'a listing photo', 128);
-    return this.db.$transaction(async tx => {
-      for (const userId of [clientId, listing.providerId].sort()) await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
-      await assertCanStart(tx, clientId);
-      await assertCanBook(tx, [listing.providerId]);
-      const reference = referencePhotoId ? await tx.listingPhoto.findFirst({ where: { id: referencePhotoId, listingId, listing: { isPublished: true } }, select: { image: true, mimeType: true } }) : null;
-      if (referencePhotoId && !reference) throw new BadRequestException('This listing photo is no longer available. Choose another or continue without one.');
-      const requestPhotos = [...images, ...(reference ? [{ mimeType: reference.mimeType, data: reference.image, isListingReference: true }] : [])];
-      const request = await tx.quoteRequest.create({ data: { clientId, providerId: listing.providerId, listingId, description, location, preferredAt, additionalInfo, photos: { create: requestPhotos } }, select: selection });
-      await tx.quoteAlert.createMany({ data: [{ recipientId: listing.providerId, requestId: request.id, message: 'A client sent you a quote request.' }, { recipientId: clientId, requestId: request.id, message: 'Your quote request was sent.' }] });
-      return request;
-    });
+    const reference = referencePhotoId ? await this.db.listingPhoto.findFirst({ where: { id: referencePhotoId, listingId, listing: { isPublished: true } }, select: { image: true, storageKey: true, mimeType: true } }) : null;
+    if (referencePhotoId && !reference) throw new BadRequestException('This listing photo is no longer available. Choose another or continue without one.');
+    const requestPhotos: Array<{ mimeType: string; data: Buffer | null; storageKey: string | null; isListingReference: boolean }> = [];
+    try {
+      for (const image of images) {
+        const file = await this.storage.store('quote', image.mimeType, image.data);
+        requestPhotos.push({ mimeType: image.mimeType, data: file.legacyData, storageKey: file.storageKey, isListingReference: false });
+      }
+      if (reference) {
+        const bytes = await this.storage.read(reference.storageKey, reference.image, 'Listing photo');
+        const file = await this.storage.store('quote', reference.mimeType, bytes);
+        requestPhotos.push({ mimeType: reference.mimeType, data: file.legacyData, storageKey: file.storageKey, isListingReference: true });
+      }
+      return await this.db.$transaction(async tx => {
+        for (const userId of [clientId, listing.providerId].sort()) await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+        await assertCanStart(tx, clientId);
+        await assertCanBook(tx, [listing.providerId]);
+        if (referencePhotoId && !await tx.listingPhoto.findFirst({ where: { id: referencePhotoId, listingId, listing: { isPublished: true } }, select: { id: true } })) throw new BadRequestException('This listing photo is no longer available. Choose another or continue without one.');
+        const request = await tx.quoteRequest.create({ data: { clientId, providerId: listing.providerId, listingId, description, location, preferredAt, additionalInfo, photos: { create: requestPhotos } }, select: selection });
+        await tx.quoteAlert.createMany({ data: [{ recipientId: listing.providerId, requestId: request.id, message: 'A client sent you a quote request.' }, { recipientId: clientId, requestId: request.id, message: 'Your quote request was sent.' }] });
+        return request;
+      });
+    } catch (error) {
+      await this.storage.deleteMany(requestPhotos.map(photo => photo.storageKey)).catch(() => undefined);
+      throw error;
+    }
   }
   async photo(id: string, role: AccountRole, requestId: string, photoId: string) {
     await this.get(id, role, requestId);
-    const image = await this.db.quotePhoto.findFirst({ where: { id: photoId, requestId } });
+    const image = await this.db.quotePhoto.findFirst({ where: { id: photoId, requestId }, select: { data: true, storageKey: true, mimeType: true } });
     if (!image) throw new NotFoundException('Photo not found');
-    return image;
+    return { mimeType: image.mimeType, data: await this.storage.read(image.storageKey, image.data, 'Photo') };
   }
   async withdraw(clientId: string, requestId: string) {
     return this.db.$transaction(async tx => {
