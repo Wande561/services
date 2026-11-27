@@ -27,6 +27,7 @@ export default function ServiceListingCard({ listing, bookable = false, appearan
       {listing.isPublished && <PresenceStatus userId={listing.providerId} />}
       {listing.verificationTier && listing.verificationTier !== 'Basic' && <span className="listing-card__verified"><ShieldCheck aria-hidden="true" />{listing.verificationTier === 'IdentityVerified' ? 'Identity verified' : 'Business verified'}</span>}
       {listing.averageRating != null && <p className="mt-2 text-sm text-emerald-300">★ {listing.averageRating.toFixed(1)} <span className="text-emerald-300/70">average rating · {listing.reviewCount} {listing.reviewCount === 1 ? 'review' : 'reviews'}</span></p>}
+      {listing.isPublished && listing.averageRating == null && <p className="mt-2 text-sm text-emerald-300/70">New provider · no reviews yet</p>}
       {listing.description && <p className="listing-card__description">{listing.description}</p>}
       <div className="listing-card__price"><span>STARTING FROM</span><strong>{formatListingPrice(listing)}</strong></div>
       {(bookable || listing.isPublished) && <div className="listing-card__actions">{bookable && <Link to={bookingPath(listing.id)} className="listing-card__quote">Request a quote <ArrowUpRight aria-hidden="true" /></Link>}{listing.isPublished && <Link to={reviewsPath(listing.id)} className="listing-card__reviews">{listing.reviewCount ? `${listing.reviewCount} ${listing.reviewCount === 1 ? 'review' : 'reviews'}` : 'Reviews'}</Link>}</div>}

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { PriceUnit, Prisma, ServiceCategory } from '@prisma/client';
+import { PriceUnit, Prisma, ServiceCategory, VerificationTier } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { imageData } from './photo-validation';
 import { requiredText } from './request-validation';
@@ -101,10 +101,32 @@ export class ServicesService {
     if (category !== undefined && !isEnumValue(ServiceCategory, category)) {
       throw new BadRequestException('Choose a valid category');
     }
+    const minRatingRaw = query.minRating;
+    const minRating = minRatingRaw === undefined || minRatingRaw === '' ? undefined : Number(minRatingRaw);
+    if (minRating !== undefined && ![3, 4, 4.5].includes(minRating)) {
+      throw new BadRequestException('Choose a valid minimum rating');
+    }
+    const verifiedRaw = query.verified;
+    if (verifiedRaw !== undefined && verifiedRaw !== '' && verifiedRaw !== 'true' && verifiedRaw !== 'false') {
+      throw new BadRequestException('Choose a valid provider verification filter');
+    }
+    const verifiedOnly = verifiedRaw === 'true';
 
     const where: Prisma.ServiceListingWhereInput = { isPublished: true };
     if (excludeProviderId) where.providerId = { not: excludeProviderId };
     if (isEnumValue(ServiceCategory, category)) where.category = category;
+    if (verifiedOnly) where.provider = { verificationTier: { not: VerificationTier.Basic } };
+    if (minRating !== undefined) {
+      const rated = await this.db.$queryRaw<{ listingId: string }[]>`
+        SELECT b."listingId" AS "listingId"
+        FROM "Review" r INNER JOIN "Booking" b ON b."id" = r."bookingId"
+        GROUP BY b."listingId"
+        HAVING AVG(r."rating") >= ${minRating}
+      `;
+      const ratedIds = rated.map(row => row.listingId);
+      if (!ratedIds.length) return { listings: [], total: 0, pageSize };
+      where.id = { in: ratedIds };
+    }
     if (location) where.location = contains(location);
     if (search) {
       const filter = contains(search);
