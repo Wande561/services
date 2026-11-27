@@ -3,7 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AppContext';
 import PresenceStatus from '../components/PresenceStatus';
+import AppointmentFields, { appointmentValue } from '../components/AppointmentFields';
 import { apiRequest } from '../utils/apiRequest';
+import { quoteMessagePath } from '../utils/inbox';
 import { formatRand, parseRandCents } from '../utils/money';
 import { quotes, quoteKey, quoteTime, sastTime, sastInputTime, durationInHours, type QuoteRequest, type QuoteVersion } from '../utils/quotes';
 
@@ -22,7 +24,7 @@ function QuoteProgress({ request }: { request: QuoteRequest }) {
   return <div className="mt-4 rounded-xl border border-home-line bg-home-canvas/60 p-4"><p className="text-xs font-semibold uppercase tracking-wider text-emerald-300">Quote to booking</p><ol className="mt-3 grid gap-3 sm:grid-cols-4">{steps.map((step, index) => <li key={step.label} className="flex items-center gap-2 text-sm"><span aria-hidden="true" className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs ${step.complete ? 'border-emerald-300 bg-emerald-300 text-home-canvas' : 'border-home-line text-emerald-300/70'}`}>{step.complete ? '✓' : index + 1}</span><span className={step.complete ? 'text-home-text' : 'text-emerald-300/70'}>{step.label}</span></li>)}</ol>{request.status === 'RevisionRequested' && <p role="status" className="mt-3 text-sm text-amber-200">The client requested changes. The provider can send a revised quotation.</p>}{request.status === 'DepositPending' && <p role="status" className="mt-3 text-sm text-amber-200">The client accepted the quote. Confirm the deposit to finish setting up the booking.</p>}{closed && <p role="status" className="mt-3 text-sm text-amber-200">{request.status === 'Declined' ? 'This quotation was declined.' : 'The requested appointment time is unavailable.'}</p>}</div>;
 }
 function QuoteDetails({ version }: { version: QuoteVersion }) {
-  return <div className="space-y-1 text-sm text-emerald-300"><p className="whitespace-pre-wrap font-editorial text-xl text-white">{version.serviceDescription}</p>
+  return <div className="space-y-1 text-sm text-emerald-300">{version.serviceDescription && <p className="whitespace-pre-wrap font-editorial text-xl text-white">{version.serviceDescription}</p>}
     <p>Labour: {formatRand(version.labourCents)} · Materials: {formatRand(version.materialsCents)} · Travel: {formatRand(version.travelCents)}</p>
     <p className="font-editorial text-xl font-bold text-white">Total: {formatRand(version.totalCents)}</p>
     {version.depositRequired && version.depositCents != null ? <div className="space-y-1 rounded-lg border border-home-line p-3"><p className="font-semibold text-emerald-300">Deposit required (25%): {formatRand(version.depositCents)}</p><p>Remaining balance: {formatRand(version.totalCents - version.depositCents)}</p><p>Bank: {version.bankName}</p><p>Account number: {version.accountNumber}</p><p>Payment reference: {version.paymentReference}</p></div> : <p>No deposit required.</p>}
@@ -39,10 +41,11 @@ function OfferForm({ request, refresh }: { request: QuoteRequest; refresh: () =>
     const hours = Number(form.get('duration'));
     const durationMinutes = Math.round(hours * 60);
     if (!Number.isFinite(hours) || durationMinutes < 1 || durationMinutes > 10080) { setError('Enter a duration between 0.01 and 168 hours.'); return; }
-    send.mutate({ serviceDescription: form.get('serviceDescription'), labourCents: amounts[0], materialsCents: amounts[1], travelCents: amounts[2], durationMinutes, appointmentAt: sastTime(String(form.get('appointment'))), notes: form.get('notes'), validHours: Number(form.get('validHours')), depositRequired, ...(depositRequired ? { bankDetails: { bankName: form.get('bankName'), accountNumber: form.get('accountNumber'), paymentReference: form.get('paymentReference') } } : {}) }); }
+    const appointment = appointmentValue(form, 'appointment');
+    if (new Date(sastTime(appointment)).getTime() <= Date.now()) { setError('Please choose a future appointment.'); return; }
+    send.mutate({ serviceDescription: form.get('serviceDescription'), labourCents: amounts[0], materialsCents: amounts[1], travelCents: amounts[2], durationMinutes, appointmentAt: sastTime(appointment), notes: form.get('notes'), validHours: Number(form.get('validHours')), depositRequired, ...(depositRequired ? { bankDetails: { bankName: form.get('bankName'), accountNumber: form.get('accountNumber'), paymentReference: form.get('paymentReference') } } : {}) }); }
   return <form onSubmit={submit} className="mt-4 space-y-3 border-t border-home-line pt-4">
     <h3 className="font-semibold text-home-text">{request.status === 'RevisionRequested' ? 'Send revised quotation' : 'Prepare quotation'}</h3>
-    <label className="block">Service description<textarea name="serviceDescription" className={field} rows={3} maxLength={2000} required /></label>
     <div className="grid gap-3 sm:grid-cols-3">{[{label:'Labour (R)',value:labour,set:setLabour,required:true},{label:'Materials (R)',value:materials,set:setMaterials},{label:'Travel (R)',value:travel,set:setTravel}].map(item => <label key={item.label}>{item.label}<input className={field} inputMode="decimal" required={item.required} value={item.value} onChange={e => item.set(e.target.value)} /></label>)}</div>
     <p className="font-semibold text-home-text">Total: {Number.isSafeInteger(total) ? formatRand(total) : 'Enter valid amounts'}</p>
     <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={depositRequired} onChange={e => setDepositRequired(e.target.checked)} />Require a 25% deposit</label>
@@ -54,10 +57,9 @@ function OfferForm({ request, refresh }: { request: QuoteRequest; refresh: () =>
     </div>}
     <label className="block">Estimated duration (hours)<input className={field} type="number" name="duration" min="0.01" max="168" step="0.01" placeholder="e.g. 1.5" aria-describedby="duration-help" required /></label>
     <p id="duration-help" className="text-sm text-emerald-300">For example, 1.5 hours means 1 hour and 30 minutes. Durations are rounded to the nearest minute.</p>
-    <label className="block">Proposed appointment (South African time)<input className={field} type="datetime-local" name="appointment" min={sastInputTime(new Date())} defaultValue={new Date(request.preferredAt).getTime() > Date.now() ? sastInputTime(request.preferredAt) : undefined} required /></label>
-    <p className="text-sm text-emerald-300">The appointment must be in the future. The client’s preferred time is filled in when available.</p>
-    <label className="block">Additional notes (optional)<textarea className={field} name="notes" maxLength={2000} rows={2} /></label>
-    <label className="block">Valid for<select className={field} name="validHours" defaultValue="5">{[1,3,5,12,24,48].map(n => <option key={n} value={n}>{n} {n === 1 ? 'hour' : 'hours'}</option>)}</select></label>
+    <AppointmentFields prefix="appointment" minDate={sastInputTime(new Date()).slice(0, 10)} defaultValue={request.preferredAt} />
+    <p className="text-sm text-emerald-300">The client's preferred time is filled in. Change it if needed.</p>
+    <details className="quote-optional"><summary>More quote details <span>Optional</span></summary><div className="quote-optional__body"><label className="block">Service description<textarea name="serviceDescription" className={field} rows={3} maxLength={2000} /></label><label className="block">Additional notes<textarea className={field} name="notes" maxLength={2000} rows={2} /></label><label className="block">Quote valid for<select className={field} name="validHours" defaultValue="5">{[1,3,5,12,24,48].map(n => <option key={n} value={n}>{n} {n === 1 ? 'hour' : 'hours'}</option>)}</select></label></div></details>
     {(error || send.isError) && <p role="alert" className="text-red-300">{error || send.error?.message}</p>}<button disabled={send.isPending} className="btn-primary disabled:opacity-50">{send.isPending ? 'Sending…' : 'Send quotation'}</button>
   </form>;
 }
@@ -113,6 +115,7 @@ export default function Quotes() {
       <div className="flex flex-wrap justify-between gap-2"><h2 className="text-2xl !text-emerald-300">{request.listing.title}</h2><span className="text-sm text-emerald-300">{statuses[request.status]}</span></div>
       <p className="mt-2 text-sm text-emerald-300">{role === 'provider' ? `Client: ${request.client.user.name || 'Client'}` : `Provider: ${request.provider.businessName || 'Provider'}`}</p>
       {role && role !== 'admin' && <PresenceStatus userId={role === 'provider' ? request.clientId : request.providerId} />}
+      {role && role !== 'admin' && <Link to={quoteMessagePath(request.id)} className="btn-secondary mt-3 inline-block">Message {role === 'provider' ? 'client' : 'provider'}</Link>}
       <QuoteProgress request={request} />
       {role === 'client' && request.provider.verificationTier !== 'Basic' && <p className="mt-1 text-sm font-semibold text-emerald-300">{request.provider.verificationTier === 'IdentityVerified' ? '✓ Identity verified' : '✓ Business verified'}</p>}
       {role === 'provider' && request.client.verificationTier === 'IdentityVerified' && <p className="mt-1 text-sm font-semibold text-emerald-300">✓ Identity verified client</p>}

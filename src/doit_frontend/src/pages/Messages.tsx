@@ -57,8 +57,8 @@ function ConversationPanel({ accountId, bookingId }: { accountId: string; bookin
           <header className="border-b border-gray-700 p-4">
             <h2 className="break-words text-lg font-semibold">{openingPage.contactName}</h2>
             <PresenceStatus userId={openingPage.contactId} />
-            <Link to={bookingHistoryPath(bookingId)}
-              className="break-words text-sm text-orange-300 hover:underline">{openingPage.serviceTitle}</Link>
+            <Link to={openingPage.activeBookingId ? bookingHistoryPath(openingPage.activeBookingId) : openingPage.quoteRequestId ? `/quotes?${new URLSearchParams({ request: openingPage.quoteRequestId })}` : bookingHistoryPath(bookingId)}
+              className="mt-1 block break-words text-sm text-orange-300 hover:underline">{openingPage.serviceTitle}</Link>
           </header>
           <div ref={messageList} className="max-h-[55vh] min-h-44 space-y-3 overflow-y-auto p-4">
             {thread.hasNextPage && (
@@ -79,7 +79,7 @@ function ConversationPanel({ accountId, bookingId }: { accountId: string; bookin
               </div>
             ))}
           </div>
-          {openingPage.closed ? <p className="border-t border-gray-700 p-4 text-sm text-gray-300">This conversation is closed. You can message again when another booking is created.</p> : <form className="space-y-3 border-t border-gray-700 p-4" onSubmit={submit}>
+          {openingPage.closed ? <p className="border-t border-gray-700 p-4 text-sm text-gray-300">This conversation is closed. You can message again when another quotation is requested or booking is created.</p> : <form className="space-y-3 border-t border-gray-700 p-4" onSubmit={submit}>
             <label className="block text-sm font-medium" htmlFor="message-body">Message</label>
             <textarea id="message-body" rows={3} required maxLength={2000} value={draft} disabled={send.isPending}
               onChange={event => setDraft(event.target.value)} className="w-full rounded-lg border border-gray-600 bg-gray-900 p-3" />
@@ -111,7 +111,7 @@ export default function Messages() {
         <header className="workspace-page-header mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <Link to={accountHome(currentUser?.profile?.role)} className="text-sm text-orange-300 hover:underline">← Dashboard</Link>
-            <p className="workspace-eyebrow">YOUR WORKSPACE / CONVERSATIONS</p><h1 className="mt-2 text-3xl font-bold">Messages</h1><p className="mt-2 text-sm text-emerald-300">View your booking conversations and message history.</p>
+            <p className="workspace-eyebrow">YOUR WORKSPACE / CONVERSATIONS</p><h1 className="mt-2 text-3xl font-bold">Messages</h1><p className="mt-2 text-sm text-emerald-300">View your quotation and booking conversations.</p>
           </div>
           <Link to="/bookings" className="btn-secondary">View bookings</Link>
         </header>
@@ -122,7 +122,7 @@ export default function Messages() {
             {threads.isError && <p role="alert" className="px-2 text-sm text-red-300">
               {threads.error.message} <button type="button" className="underline" onClick={() => threads.refetch()}>Try again</button>
             </p>}
-            {threads.data?.length === 0 && <p className="px-2 text-sm text-gray-300">Open a booking to start a conversation.</p>}
+            {threads.data?.length === 0 && <p className="px-2 text-sm text-gray-300">Request a quotation to start a conversation.</p>}
             <ul className="space-y-1">
               {threads.data?.map(thread => (
                 <li key={thread.bookingId}>

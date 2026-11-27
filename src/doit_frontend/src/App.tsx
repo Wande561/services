@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AppContext';
 import { PresenceProvider } from './contexts/PresenceContext';
 import Home from './pages/Home';
 import SiteNavbar from './components/SiteNavbar';
+import FormFeedback from './components/FormFeedback';
 import SignIn from './pages/SignIn';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -56,21 +57,21 @@ function RequireProfile({ role }: { role?: AccountRole }) {
 function AppRoutes() {
   const { pathname } = useLocation();
   const page = pathname === '/' ? 'home' : pathname === '/provider-dashboard/hours' ? 'hours' : pathname === '/settings' ? 'settings' : pathname.split('/').filter(Boolean)[0] || 'home';
-  return <div className={pathname === '/' ? undefined : 'app-theme'}><SiteNavbar /><div className="page-stage min-w-0 md:pl-64" data-page={page}><Routes>
+  return <FormFeedback><div className={pathname === '/' ? undefined : 'app-theme'}><SiteNavbar /><div className="page-stage min-w-0 md:pl-64" data-page={page}><Routes>
             <Route path="/" element={<Home />} />
             <Route path="/signin" element={<SignIn />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/services" element={<Services />} />
-            <Route path="/services/:listingId" element={<ListingDetail />} />
-            <Route path="/providers/:providerId" element={<ProviderProfile />} />
-            <Route path="/providers/:providerId/work" element={<ProviderProfile />} />
-            <Route path="/services/:listingId/reviews" element={<ListingReviews />} />
             <Route path="/about" element={<About />} />
             <Route path="/provider-login" element={<Navigate to="/signin?role=provider" replace />} />
             <Route path="/client-login" element={<Navigate to="/signin?role=client" replace />} />
             <Route element={<RequireProfile />}>
+              <Route path="/services" element={<Services />} />
+              <Route path="/services/:listingId" element={<ListingDetail />} />
+              <Route path="/providers/:providerId" element={<ProviderProfile />} />
+              <Route path="/providers/:providerId/work" element={<ProviderProfile />} />
+              <Route path="/services/:listingId/reviews" element={<ListingReviews />} />
               <Route path="/bookings" element={<Bookings />} />
               <Route path="/quotes" element={<Quotes />} />
               <Route path="/notifications" element={<Notifications />} />
@@ -93,7 +94,7 @@ function AppRoutes() {
               <Route path="/provider-dashboard/hours" element={<WorkingHours />} />
               <Route path="/provider-dashboard/availability" element={<Navigate to="/provider-dashboard/hours" replace />} />
             </Route>
-          </Routes></div></div>;
+          </Routes></div></div></FormFeedback>;
 }
 
 export default function App() {

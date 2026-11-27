@@ -274,8 +274,10 @@ model BookingPayment {
 
 model Message {
   id           String        @id @default(cuid())
-  bookingId    String
-  booking      Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId    String?
+  booking      Booking?      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  quoteRequestId String?
+  quoteRequest QuoteRequest? @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
   senderId     String
   sender       Profile       @relation(fields: [senderId], references: [userId], onDelete: Cascade)
   body         String
@@ -284,6 +286,7 @@ model Message {
   notification Notification?
 
   @@index([bookingId, createdAt, id])
+  @@index([quoteRequestId, createdAt, id])
 }
 
 enum NotificationKind {
@@ -301,8 +304,10 @@ model Notification {
   id            String           @id @default(cuid())
   recipientId   String
   recipient     Profile          @relation(fields: [recipientId], references: [userId], onDelete: Cascade)
-  bookingId     String
-  booking       Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId     String?
+  booking       Booking?         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  quoteRequestId String?
+  quoteRequest  QuoteRequest?    @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
   kind          NotificationKind
   bookingStatus BookingStatus?
   messageId     String?          @unique
@@ -361,6 +366,8 @@ model QuoteRequest {
   photos QuotePhoto[]
   versions QuoteVersion[]
   alerts QuoteAlert[]
+  messages Message[]
+  notifications Notification[]
   booking Booking?
   @@index([providerId, createdAt])
   @@index([clientId, createdAt])

@@ -129,13 +129,14 @@ export interface BookingMessage {
   createdAt: string;
   mine: boolean;
   read: boolean;
-  kind: 'message' | 'booking-created' | 'booking-completed';
+  kind: 'message' | 'quote-created' | 'booking-created' | 'booking-completed';
 }
 
 export interface MessageThread {
   bookingId: string;
   contactId: string;
   activeBookingId: string | null;
+  quoteRequestId: string | null;
   closed: boolean;
   serviceTitle: string;
   contactName: string;
@@ -148,7 +149,8 @@ export interface Conversation extends MessageThread {
 
 export interface AppNotification {
   id: string;
-  bookingId: string;
+  bookingId: string | null;
+  quoteRequestId: string | null;
   serviceTitle: string;
   kind: 'BookingRequested' | 'BookingStatusChanged' | 'MessageReceived' | 'ReviewReceived' | 'PaymentRecorded' | 'PaymentVoided' | 'ServiceCompletionConfirmation' | 'AppointmentReminder';
   bookingStatus: BookingStatus | null;

@@ -13,6 +13,10 @@ export function messagePath(bookingId: string) {
   return `/messages?${new URLSearchParams({ booking: bookingId })}`;
 }
 
+export function quoteMessagePath(quoteRequestId: string) {
+  return messagePath(`q:${quoteRequestId}`);
+}
+
 export function bookingHistoryPath(bookingId: string) {
   return `/bookings?${new URLSearchParams({ booking: bookingId })}`;
 }

@@ -75,6 +75,9 @@ export class QuotesService {
     const description = requiredText(body?.description, 'the work you need', 2000);
     const location = requiredText(body?.location, 'the service location', 300);
     const preferredAt = future(body?.preferredAt, 'preferred date and time');
+    const todaySast = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const preferredDaySast = new Date(preferredAt.getTime() + 2 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    if (preferredDaySast <= todaySast) throw new BadRequestException('Choose an appointment date from tomorrow onward');
     const additionalInfo = optional(body?.additionalInfo, 'additional information', 1000);
     const images = photos(body?.photos);
     const referencePhotoId = body?.referencePhotoId == null || body.referencePhotoId === '' ? null : requiredText(body.referencePhotoId, 'a listing photo', 128);
@@ -97,7 +100,9 @@ export class QuotesService {
     return image;
   }
   async offer(providerId: string, requestId: string, body: any) {
-    const serviceDescription = requiredText(body?.serviceDescription, 'a service description', 2000);
+    const description = body?.serviceDescription;
+    const serviceDescription = description == null || (typeof description === 'string' && !description.trim())
+      ? '' : requiredText(description, 'a service description', 2000);
     const depositRequired = body?.depositRequired ?? false;
     const costs = calculateQuotation({ labourCents: body?.labourCents, materialsCents: body?.materialsCents, travelCents: body?.travelCents, depositRequired });
     const bank = depositRequired ? validBankDetails(body?.bankDetails) : { bankName: null, accountNumber: null, paymentReference: null };

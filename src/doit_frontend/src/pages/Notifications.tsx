@@ -7,7 +7,7 @@ import { accountHome } from '../utils/accountRoutes';
 import { apiRequest } from '../utils/apiRequest';
 import { myReliability, reliabilityKey } from '../utils/reliability';
 import { quoteAlerts, quoteKey } from '../utils/quotes';
-import { bookingHistoryPath, formatInboxTime, inboxKey, inboxUnread, messagePath, notifications, readNotifications } from '../utils/inbox';
+import { bookingHistoryPath, formatInboxTime, inboxKey, inboxUnread, messagePath, quoteMessagePath, notifications, readNotifications } from '../utils/inbox';
 
 function notificationLabel(notification: AppNotification) {
   switch (notification.kind) {
@@ -85,7 +85,7 @@ export default function Notifications() {
           </li>)}
           {items.map(notification => {
             const { title, icon: Icon } = notificationLabel(notification);
-            const destination = notification.kind === 'MessageReceived' ? messagePath(notification.bookingId) : bookingHistoryPath(notification.bookingId);
+            const destination = notification.quoteRequestId ? quoteMessagePath(notification.quoteRequestId) : notification.kind === 'MessageReceived' ? messagePath(notification.bookingId!) : bookingHistoryPath(notification.bookingId!);
             return (
               <li key={notification.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-gray-700 bg-gray-800 p-4">
                 <Link to={destination} className="flex min-w-0 items-start gap-3 hover:text-orange-300"

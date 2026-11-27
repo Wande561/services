@@ -90,7 +90,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     const [notifications, messages] = await this.db.$transaction([
       this.db.notification.count({ where: { recipientId: accountId, readAt: null, kind: { in: kinds as any } } }),
       this.db.message.count({
-        where: { senderId: { not: accountId }, readAt: null, booking: bookingOwnership(accountId, role) },
+        where: { senderId: { not: accountId }, readAt: null, OR: [{ booking: bookingOwnership(accountId, role) }, { quoteRequest: role === 'provider' ? { providerId: accountId } : { clientId: accountId } }] },
       }),
     ], { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
     return { notifications, messages };
@@ -112,12 +112,13 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       take: pageSize + 1,
       ...(cursor && { cursor, skip: 1 }),
       select: {
-        id: true, bookingId: true, kind: true, bookingStatus: true, createdAt: true, readAt: true,
+        id: true, bookingId: true, quoteRequestId: true, kind: true, bookingStatus: true, createdAt: true, readAt: true,
         booking: { select: { serviceTitle: true } },
+        quoteRequest: { select: { listing: { select: { title: true } } } },
       },
     });
-    const items = records.slice(0, pageSize).map(({ booking, readAt, ...record }) => ({
-      ...record, serviceTitle: booking.serviceTitle, read: readAt !== null,
+    const items = records.slice(0, pageSize).map(({ booking, quoteRequest, readAt, ...record }) => ({
+      ...record, serviceTitle: booking?.serviceTitle ?? quoteRequest?.listing.title ?? 'Service', read: readAt !== null,
     }));
     return { items, nextCursor: records.length > pageSize ? items[pageSize - 1].id : null };
   }
