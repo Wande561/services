@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AppContext';
 import type { WorkspaceBooking, WorkspaceMember, WorkspaceRole, WorkspaceSummary } from '../types';
-import { bookingHistoryPath } from '../utils/inbox';
 import {
   acceptWorkspaceInvitation, assignWorkspaceBooking, createWorkspace, deactivateWorkspaceMember,
   inviteWorkspaceMember, myWorkspaces, updateWorkspaceMember, workspaceBookings, workspaceKey, workspaceSummary,
@@ -85,11 +84,10 @@ function Overview({ summary, canTeamView }: { summary: WorkspaceSummary; canTeam
       <section className="workspace-card">
         <div className="workspace-card__head"><div><p className="workspace-kicker">NEXT UP</p><h2>Upcoming appointments</h2></div><Link to={`/workspace?workspace=${summary.workspace.id}&tab=bookings`}>All bookings <ArrowUpRight size={15} /></Link></div>
         {!summary.upcoming.length && <p className="workspace-empty">No upcoming appointments yet.</p>}
-        <div className="workspace-list">{summary.upcoming.map(booking => <Link key={booking.id} to={bookingHistoryPath(booking.id)} className="workspace-list__row">
+        <div className="workspace-list">{summary.upcoming.map(booking => <div key={booking.id} className="workspace-list__row">
           <span className="workspace-date"><strong>{new Date(booking.slot.startsAt).getDate()}</strong><small>{new Intl.DateTimeFormat('en-ZA', { timeZone: 'Africa/Johannesburg', month: 'short' }).format(new Date(booking.slot.startsAt))}</small></span>
           <span className="workspace-list__copy"><strong>{booking.serviceTitle}</strong><small>{booking.client.user.name || 'Client'} · {when(booking.slot.startsAt)}</small><small className="workspace-assignment-line">{booking.workspaceAssignments.length ? booking.workspaceAssignments.map(item => item.member.name || item.member.email).join(', ') : 'Unassigned'}</small></span>
-          <ArrowUpRight size={16} aria-hidden="true" />
-        </Link>)}</div>
+        </div>)}</div>
       </section>
       <section className="workspace-card">
         <div className="workspace-card__head"><div><p className="workspace-kicker">YOUR TEAM</p><h2>Who is working</h2></div><Link to={`/workspace?workspace=${summary.workspace.id}&tab=team`}>Manage team <ArrowUpRight size={15} /></Link></div>
@@ -198,7 +196,6 @@ function WorkspaceBookingRow({ booking, active, canAssign, onAssign, busy }: { b
     <div className="workspace-booking__assign">
       <div className="workspace-assignment-chips">{booking.workspaceAssignments.length ? booking.workspaceAssignments.map(item => <span key={item.id}>{item.member.name || item.member.email}</span>) : <span className="workspace-unassigned">Unassigned</span>}</div>
       {canAssign && <details className="workspace-details"><summary><Users size={14} /> Assign <ChevronDown size={13} /></summary><div className="workspace-permissions">{active.map(member => <label key={member.id} className="workspace-check workspace-check--compact"><input type="checkbox" checked={selected.includes(member.id)} onChange={event => setSelected(event.target.checked ? [...selected, member.id] : selected.filter(id => id !== member.id))} /><span>{member.name || member.email}</span></label>)}<button type="button" className="workspace-secondary" disabled={busy} onClick={() => onAssign(selected)}>Save assignments</button></div></details>}
-      <Link to={bookingHistoryPath(booking.id)} className="workspace-link">Open booking <ArrowUpRight size={14} /></Link>
     </div>
   </article>;
 }
@@ -241,7 +238,7 @@ export default function Workspace() {
       <div className="workspace-head__actions">
         {workspaces.data.length > 1 && <select aria-label="Choose workspace" value={selectedId} onChange={event => choose(event.target.value)}>{workspaces.data.map(workspace => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select>}
         {isProvider && <button type="button" className="workspace-secondary" onClick={() => setCreating(value => !value)}><Plus size={15} /> New workspace</button>}
-        <Link to="/provider-dashboard" className="workspace-secondary">Provider dashboard <ArrowUpRight size={15} /></Link>
+        <Link to={isProvider ? '/provider-dashboard' : '/dashboard'} className="workspace-secondary">{isProvider ? 'Provider dashboard' : 'My dashboard'} <ArrowUpRight size={15} /></Link>
       </div>
     </header>
     {creating && <ActivationForm compact defaultName="" defaultLocation={currentUser?.profile?.location || ''} attachDefault={false} onCreated={created} />}
