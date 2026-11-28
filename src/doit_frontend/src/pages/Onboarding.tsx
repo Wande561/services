@@ -75,7 +75,7 @@ function ProfileForm({ account }: { account: NonNullable<ReturnType<typeof useAu
 
   return (
     <main className="onboarding-page min-h-screen text-white">
-      <header className="onboarding-header"><a href="/" className="onboarding-brand"><img src="/serviceconnect-logo.png" alt="" /><span>Service<em>Connect</em></span></a><button type="button" disabled={busy} onClick={logout}>Sign out <ArrowRight size={15} aria-hidden="true" /></button></header>
+      <header className="onboarding-header"><a href="/" className="onboarding-brand"><img src="/serviceconnect-monogram.png" alt="" /><span>Service<em>Connect</em></span></a><button type="button" disabled={busy} onClick={logout}>Sign out <ArrowRight size={15} aria-hidden="true" /></button></header>
       <div className="onboarding-layout"><aside className="onboarding-story"><span className="onboarding-story__icon"><Sparkles size={19} aria-hidden="true" /></span><p>A LITTLE ABOUT YOU</p><h1>Good things start with <em>connection.</em></h1><span>Set up your space and find the people who make things happen.</span><div className="onboarding-story__foot">GOOD PEOPLE. GOOD WORK.</div></aside>
       <div className="onboarding-shell">
         <div className="onboarding-intro"><p>YOUR ACCOUNT / GETTING STARTED</p><h2>Let’s get to know you.</h2><span>A few details and you’re ready to get started.</span></div>

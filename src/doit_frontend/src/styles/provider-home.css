@@ -271,3 +271,5 @@
 .provider-sidebar .provider-sidebar__link { color: #dfc0b6; }.provider-sidebar .provider-sidebar__link svg { color: #d3a59a; }
 .provider-sidebar .provider-sidebar__link:hover { background: #4c1b25; color: #fff3e9; }.provider-sidebar .provider-sidebar__link.is-active { background: #6b2832; color: #ffe9dd; }
 .provider-sidebar .provider-sidebar__switch { border-color: #85525a; background: #461822; color: #f9ded1; }.provider-sidebar .provider-sidebar__switch:hover { background: #642531; }
+.provider-sidebar__brand { gap: 10px; }
+.provider-sidebar__logo { width: 34px; height: 34px; flex: none; border-radius: 9px; object-fit: cover; }
