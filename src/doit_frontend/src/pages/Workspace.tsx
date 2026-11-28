@@ -3,14 +3,22 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowUpRight, Building2, CalendarDays, CheckCircle2, ChevronDown, Clock3, ClipboardList,
-  Mail, Plus, ShieldCheck, Sparkles, UserPlus, Users,
+  ListChecks, Mail, Plus, ShieldCheck, Sparkles, UserPlus, Users,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AppContext';
+import BookingNotes from '../components/BookingNotes';
+import WorkspaceAnalytics from '../components/WorkspaceAnalytics';
+import WorkspaceFinance from '../components/WorkspaceFinance';
+import WorkspaceMessages from '../components/WorkspaceMessages';
+import WorkspaceNotifications from '../components/WorkspaceNotifications';
+import WorkspaceTasks from '../components/WorkspaceTasks';
 import type { WorkspaceBooking, WorkspaceMember, WorkspaceRole, WorkspaceSummary } from '../types';
 import {
   acceptWorkspaceInvitation, assignWorkspaceBooking, createWorkspace, deactivateWorkspaceMember,
   inviteWorkspaceMember, myWorkspaces, updateWorkspaceMember, workspaceBookings, workspaceKey, workspaceSummary,
 } from '../utils/workspaces';
+
+type WorkspaceTab = 'overview' | 'team' | 'bookings' | 'tasks' | 'messages' | 'finance' | 'analytics';
 
 const roles: WorkspaceRole[] = ['Manager', 'Staff', 'Receptionist', 'Finance'];
 const roleHelp: Record<WorkspaceRole, string> = {
@@ -27,6 +35,13 @@ const permissionOptions: { key: string; label: string }[] = [
   { key: 'bookings.manage', label: 'Manage bookings' },
   { key: 'bookings.assign', label: 'Assign bookings' },
   { key: 'services.manage', label: 'Manage services' },
+  { key: 'tasks.view', label: 'View tasks' },
+  { key: 'tasks.view.all', label: 'View all tasks' },
+  { key: 'tasks.manage', label: 'Manage tasks' },
+  { key: 'bookings.notes', label: 'Internal booking notes' },
+  { key: 'chat.view', label: 'View team chat' },
+  { key: 'chat.post', label: 'Post team chat' },
+  { key: 'announcements.manage', label: 'Manage announcements' },
   { key: 'finance.view', label: 'View finances' },
   { key: 'analytics.view', label: 'View analytics' },
   { key: 'workspace.manage', label: 'Manage workspace' },
@@ -79,6 +94,7 @@ function Overview({ summary, canTeamView }: { summary: WorkspaceSummary; canTeam
       <Metric label="Upcoming bookings" value={summary.metrics.upcomingBookings} icon={ClipboardList} />
       <Metric label="Active team" value={summary.metrics.activeMembers} icon={Users} />
       <Metric label="Completed this month" value={summary.metrics.completedThisMonth} icon={CheckCircle2} />
+      <Metric label="Open tasks" value={summary.metrics.openTasks} icon={ListChecks} />
     </div>
     <div className="workspace-columns">
       <section className="workspace-card">
@@ -165,7 +181,7 @@ function TeamPanel({ summary, canManage, isOwner, onRefresh }: { summary: Worksp
   </div>;
 }
 
-function BookingsPanel({ summary, canAssign }: { summary: WorkspaceSummary; canAssign: boolean }) {
+function BookingsPanel({ summary, canAssign, canAddNotes }: { summary: WorkspaceSummary; canAssign: boolean; canAddNotes: boolean }) {
   const [status, setStatus] = useState('');
   const [memberId, setMemberId] = useState('');
   const query = useQuery(workspaceBookings(summary.workspace.id, { ...(status ? { status } : {}), ...(memberId ? { memberId } : {}) }));
@@ -183,16 +199,16 @@ function BookingsPanel({ summary, canAssign }: { summary: WorkspaceSummary; canA
     {query.isPending && <p className="workspace-empty">Loading bookings…</p>}
     {query.isError && <p className="workspace-error" role="alert">{query.error.message}</p>}
     {query.data && !query.data.length && <p className="workspace-empty">No bookings match this view.</p>}
-    <div className="workspace-booking-list">{query.data?.map(booking => <WorkspaceBookingRow key={booking.id} booking={booking} active={active} canAssign={canAssign} onAssign={memberIds => assign.mutate({ bookingId: booking.id, memberIds })} busy={assign.isPending} />)}</div>
+    <div className="workspace-booking-list">{query.data?.map(booking => <WorkspaceBookingRow key={booking.id} booking={booking} active={active} canAssign={canAssign} canAddNotes={canAddNotes} workspaceId={summary.workspace.id} onAssign={memberIds => assign.mutate({ bookingId: booking.id, memberIds })} busy={assign.isPending} />)}</div>
   </section>;
 }
 
-function WorkspaceBookingRow({ booking, active, canAssign, onAssign, busy }: { booking: WorkspaceBooking; active: WorkspaceMember[]; canAssign: boolean; onAssign: (ids: string[]) => void; busy: boolean }) {
+function WorkspaceBookingRow({ booking, active, canAssign, canAddNotes, workspaceId, onAssign, busy }: { booking: WorkspaceBooking; active: WorkspaceMember[]; canAssign: boolean; canAddNotes: boolean; workspaceId: string; onAssign: (ids: string[]) => void; busy: boolean }) {
   const [selected, setSelected] = useState<string[]>(() => booking.workspaceAssignments.map(item => item.memberId));
   useEffect(() => { setSelected(booking.workspaceAssignments.map(item => item.memberId)); }, [booking.workspaceAssignments]);
   return <article className="workspace-booking">
     <span className="workspace-date workspace-date--wide"><strong>{new Date(booking.slot.startsAt).getDate()}</strong><small>{new Intl.DateTimeFormat('en-ZA', { timeZone: 'Africa/Johannesburg', month: 'short' }).format(new Date(booking.slot.startsAt))}</small></span>
-    <div className="workspace-booking__copy"><strong>{booking.serviceTitle}</strong><small>{booking.client.user.name || 'Client'} · {when(booking.slot.startsAt)}</small><small>{booking.address}</small><span className={`workspace-badge workspace-badge--${booking.status.toLowerCase()}`}>{booking.status}</span></div>
+    <div className="workspace-booking__copy"><strong>{booking.serviceTitle}</strong><small>{booking.client.user.name || 'Client'} · {when(booking.slot.startsAt)}</small><small>{booking.address}</small><span className={`workspace-badge workspace-badge--${booking.status.toLowerCase()}`}>{booking.status}</span>{canAddNotes && <BookingNotes workspaceId={workspaceId} bookingId={booking.id} canAdd={canAddNotes} />}</div>
     <div className="workspace-booking__assign">
       <div className="workspace-assignment-chips">{booking.workspaceAssignments.length ? booking.workspaceAssignments.map(item => <span key={item.id}>{item.member.name || item.member.email}</span>) : <span className="workspace-unassigned">Unassigned</span>}</div>
       {canAssign && <details className="workspace-details"><summary><Users size={14} /> Assign <ChevronDown size={13} /></summary><div className="workspace-permissions">{active.map(member => <label key={member.id} className="workspace-check workspace-check--compact"><input type="checkbox" checked={selected.includes(member.id)} onChange={event => setSelected(event.target.checked ? [...selected, member.id] : selected.filter(id => id !== member.id))} /><span>{member.name || member.email}</span></label>)}<button type="button" className="workspace-secondary" disabled={busy} onClick={() => onAssign(selected)}>Save assignments</button></div></details>}
@@ -204,7 +220,7 @@ export default function Workspace() {
   const { currentUser } = useAuth();
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState(false);
-  const [tab, setTab] = useState<'overview' | 'team' | 'bookings'>(() => (params.get('tab') as 'overview' | 'team' | 'bookings') || 'overview');
+  const [tab, setTab] = useState<WorkspaceTab>(() => (params.get('tab') as WorkspaceTab) || 'overview');
   const queryClient = useQueryClient();
   const workspaces = useQuery(myWorkspaces());
   const selectedId = params.get('workspace') || workspaces.data?.[0]?.id || '';
@@ -213,7 +229,7 @@ export default function Workspace() {
   const isProvider = Boolean(currentUser?.profile?.providerEnabled);
 
   useEffect(() => {
-    const next = params.get('tab') as 'overview' | 'team' | 'bookings' | null;
+    const next = params.get('tab') as WorkspaceTab | null;
     if (next) setTab(next);
   }, [params]);
 
@@ -231,6 +247,16 @@ export default function Workspace() {
 
   const can = (permission: string) => summary.data?.access.permissions.includes(permission) ?? false;
   const isOwner = summary.data?.access.role === 'Owner' || current?.isOwner;
+  const tabs: { key: WorkspaceTab; label: string }[] = summary.data ? [
+    { key: 'overview', label: 'Overview' },
+    ...(can('team.view') ? [{ key: 'team' as const, label: 'Team' }] : []),
+    { key: 'bookings', label: 'Bookings' },
+    ...(can('tasks.view') ? [{ key: 'tasks' as const, label: 'Tasks' }] : []),
+    ...(can('chat.view') ? [{ key: 'messages' as const, label: 'Messages' }] : []),
+    ...(can('finance.view') ? [{ key: 'finance' as const, label: 'Finance' }] : []),
+    ...(can('analytics.view') ? [{ key: 'analytics' as const, label: 'Analytics' }] : []),
+  ] : [{ key: 'overview' as const, label: 'Overview' }, { key: 'bookings' as const, label: 'Bookings' }];
+  const visibleTab = tabs.some(item => item.key === tab) ? tab : 'overview';
 
   return <main className="workspace-page"><div className="workspace-shell">
     <header className="workspace-head">
@@ -238,18 +264,23 @@ export default function Workspace() {
       <div className="workspace-head__actions">
         {workspaces.data.length > 1 && <select aria-label="Choose workspace" value={selectedId} onChange={event => choose(event.target.value)}>{workspaces.data.map(workspace => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select>}
         {isProvider && <button type="button" className="workspace-secondary" onClick={() => setCreating(value => !value)}><Plus size={15} /> New workspace</button>}
+        <WorkspaceNotifications workspaceId={selectedId} />
         <Link to={isProvider ? '/provider-dashboard' : '/dashboard'} className="workspace-secondary">{isProvider ? 'Provider dashboard' : 'My dashboard'} <ArrowUpRight size={15} /></Link>
       </div>
     </header>
     {creating && <ActivationForm compact defaultName="" defaultLocation={currentUser?.profile?.location || ''} attachDefault={false} onCreated={created} />}
     <nav className="workspace-tabs" aria-label="Workspace sections">
-      {(['overview', ...(summary.data && !can('team.view') ? [] : ['team'] as const), 'bookings'] as const).map(item => <button key={item} type="button" className={tab === item ? 'is-active' : ''} onClick={() => { setTab(item); setParams({ workspace: selectedId, tab: item }); }}>{item === 'overview' ? 'Overview' : item === 'team' ? 'Team' : 'Bookings'}</button>)}
+      {tabs.map(item => <button key={item.key} type="button" className={visibleTab === item.key ? 'is-active' : ''} onClick={() => { setTab(item.key); setParams({ workspace: selectedId, tab: item.key }); }}>{item.label}</button>)}
     </nav>
     {summary.isPending && <p className="workspace-empty" role="status">Loading workspace…</p>}
     {summary.isError && <p className="workspace-error" role="alert">{summary.error.message}</p>}
-    {summary.data && (tab === 'overview' || (tab === 'team' && !can('team.view'))) && <Overview summary={summary.data} canTeamView={can('team.view')} />}
-    {summary.data && tab === 'team' && can('team.view') && <TeamPanel summary={summary.data} canManage={can('team.manage')} isOwner={!!isOwner} onRefresh={refresh} />}
-    {summary.data && tab === 'bookings' && <BookingsPanel summary={summary.data} canAssign={can('bookings.assign')} />}
+    {summary.data && visibleTab === 'overview' && <Overview summary={summary.data} canTeamView={can('team.view')} />}
+    {summary.data && visibleTab === 'team' && <TeamPanel summary={summary.data} canManage={can('team.manage')} isOwner={!!isOwner} onRefresh={refresh} />}
+    {summary.data && visibleTab === 'bookings' && <BookingsPanel summary={summary.data} canAssign={can('bookings.assign')} canAddNotes={can('bookings.notes')} />}
+    {summary.data && visibleTab === 'tasks' && <WorkspaceTasks workspaceId={selectedId} summary={summary.data} canSeeAll={can('tasks.view.all')} canManage={can('tasks.manage')} />}
+    {summary.data && visibleTab === 'messages' && <WorkspaceMessages workspaceId={selectedId} summary={summary.data} canPost={can('chat.post')} canManageAnnouncements={can('announcements.manage')} memberId={summary.data.access.memberId} />}
+    {summary.data && visibleTab === 'finance' && <WorkspaceFinance workspaceId={selectedId} />}
+    {summary.data && visibleTab === 'analytics' && <WorkspaceAnalytics workspaceId={selectedId} />}
   </div></main>;
 }
 

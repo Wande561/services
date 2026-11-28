@@ -217,10 +217,97 @@ export interface WorkspaceBooking {
 
 export interface WorkspaceSummary {
   workspace: { id: string; name: string; description: string | null; location: string | null; createdAt: string; ownerId: string };
-  access: { role: WorkspaceRole; permissions: string[] };
-  metrics: { todayBookings: number; pendingRequests: number; upcomingBookings: number; activeMembers: number; completedThisMonth: number };
+  access: { role: WorkspaceRole; permissions: string[]; memberId: string; userId: string | null; name: string | null; email: string };
+  metrics: { todayBookings: number; pendingRequests: number; upcomingBookings: number; activeMembers: number; completedThisMonth: number; openTasks: number };
   upcoming: WorkspaceBooking[];
   team: WorkspaceMember[];
   activity: { id: string; kind: string; message: string; createdAt: string; actor: { name: string | null } | null }[];
   listings: { id: string; title: string; isPublished: boolean }[];
+}
+
+export type WorkspaceTaskStatus = 'Pending' | 'InProgress' | 'Completed';
+export type WorkspaceTaskPriority = 'Low' | 'Normal' | 'High' | 'Urgent';
+
+export interface WorkspaceTask {
+  id: string;
+  title: string;
+  description: string | null;
+  status: WorkspaceTaskStatus;
+  priority: WorkspaceTaskPriority;
+  dueAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assignee: { id: string; name: string | null; email: string; role: WorkspaceRole } | null;
+  createdBy: { id: string; name: string | null; email: string };
+  booking: { id: string; serviceTitle: string } | null;
+}
+
+export interface WorkspaceNote {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: { id: string; name: string | null; email: string };
+}
+
+export interface WorkspaceAnnouncement {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  author: { id: string; name: string | null; email: string };
+}
+
+export interface WorkspaceMessage {
+  id: string;
+  body: string;
+  recipientId: string | null;
+  createdAt: string;
+  author: { id: string; name: string | null; email: string };
+  recipient: { id: string; name: string | null; email: string } | null;
+}
+
+export interface WorkspaceNotification {
+  id: string;
+  kind: string;
+  message: string;
+  href: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface WorkspaceFinance {
+  summary: {
+    recordedCents: number;
+    recordedCount: number;
+    depositsCents: number;
+    outstandingCents: number;
+    outstandingCount: number;
+    voidedCents: number;
+    voidedCount: number;
+  };
+  monthly: { month: string; label: string; amountCents: number; count: number }[];
+  history: { id: string; bookingId: string; serviceTitle: string; clientName: string; amountCents: number; method: string; recordedAt: string }[];
+  outstanding: { bookingId: string; serviceTitle: string; clientName: string; priceCents: number; paidCents: number; dueCents: number; completedAt: string }[];
+  voided: { id: string; bookingId: string; serviceTitle: string; clientName: string; amountCents: number; method: string; recordedAt: string; voidedAt: string }[];
+  unrecorded: { bookingId: string; serviceTitle: string; clientName: string; priceCents: number | null; completedAt: string }[];
+}
+
+export interface WorkspaceAnalytics {
+  period: { days: number; from: string; to: string };
+  business: {
+    totalBookings: number;
+    completedBookings: number;
+    cancelledBookings: number;
+    revenueCents: number;
+    averageBookingValueCents: number;
+    statusCounts: Record<string, number>;
+    popularServices: { title: string; category: string; count: number }[];
+  };
+  team: {
+    id: string; name: string; role: WorkspaceRole; status: 'Active' | 'Invited' | 'Inactive';
+    assignedBookings: number; completedBookings: number; revenueCents: number;
+    averageRating: number | null; completionRate: number | null;
+  }[];
+  note: string;
 }

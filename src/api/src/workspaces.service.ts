@@ -65,7 +65,7 @@ function memberView(member: Prisma.WorkspaceMemberGetPayload<{ select: typeof me
 export class WorkspacesService {
   constructor(private readonly db: PrismaService, private readonly mail: MailService = new MailService()) {}
 
-  private async access(workspaceId: string, userId: string, permission?: WorkspacePermission) {
+  async access(workspaceId: string, userId: string, permission?: WorkspacePermission) {
     const workspace = await this.db.workspace.findUnique({ where: { id: workspaceId } });
     if (!workspace) throw new NotFoundException('Workspace not found');
     const member = await this.db.workspaceMember.findFirst({ where: { workspaceId, userId, status: WorkspaceMemberStatus.Active } });
@@ -76,11 +76,11 @@ export class WorkspacesService {
     return { workspace, member };
   }
 
-  private permissions(member: { role: WorkspaceRole; permissions: Prisma.JsonValue | null }) {
+  permissions(member: { role: WorkspaceRole; permissions: Prisma.JsonValue | null }) {
     return [...effectivePermissions(member.role, member.permissions)];
   }
 
-  private async activity(tx: Prisma.TransactionClient | PrismaService, workspaceId: string, actorId: string, kind: string, message: string, metadata?: Prisma.InputJsonValue) {
+  async activity(tx: Prisma.TransactionClient | PrismaService, workspaceId: string, actorId: string, kind: string, message: string, metadata?: Prisma.InputJsonValue) {
     await tx.workspaceActivity.create({ data: { workspaceId, actorId, kind, message, ...(metadata ? { metadata } : {}) } });
   }
 
@@ -133,17 +133,19 @@ export class WorkspacesService {
     const { workspace, member } = await this.access(workspaceId, userId, 'bookings.view');
     const canTeamView = hasPermission(member.role, member.permissions, 'team.view');
     const canViewAllBookings = hasPermission(member.role, member.permissions, 'bookings.view.all');
+    const canViewAllTasks = hasPermission(member.role, member.permissions, 'tasks.view.all');
     const now = new Date();
     const todayStart = sastDayStart(now);
     const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
     const monthStart = new Date(`${new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Johannesburg', year: 'numeric', month: '2-digit' }).format(now)}-01T00:00:00+02:00`);
 
-    const [todayBookings, pendingRequests, upcomingBookings, activeMembers, completedThisMonth, upcoming, team, activity, listings] = await Promise.all([
+    const [todayBookings, pendingRequests, upcomingBookings, activeMembers, completedThisMonth, openTasks, upcoming, team, activity, listings] = await Promise.all([
       this.db.booking.count({ where: { workspaceId, status: { in: ['Pending', 'Confirmed'] }, slot: { startsAt: { gte: todayStart, lt: todayEnd } } } }),
       this.db.quoteRequest.count({ where: { workspaceId, status: { in: ['Pending', 'RevisionRequested'] } } }),
       this.db.booking.count({ where: { workspaceId, status: 'Confirmed', slot: { startsAt: { gte: now } } } }),
       this.db.workspaceMember.count({ where: { workspaceId, status: WorkspaceMemberStatus.Active } }),
       this.db.booking.count({ where: { workspaceId, status: 'Completed', updatedAt: { gte: monthStart } } }),
+      this.db.workspaceTask.count({ where: { workspaceId, status: { not: 'Completed' }, ...(canViewAllTasks ? {} : { assigneeId: member.id }) } }),
       this.db.booking.findMany({
         where: {
           workspaceId, status: { in: ['Pending', 'Confirmed'] }, slot: { startsAt: { gte: now } },
@@ -161,8 +163,8 @@ export class WorkspacesService {
 
     return {
       workspace: { id: workspace.id, name: workspace.name, description: workspace.description, location: workspace.location, createdAt: workspace.createdAt, ownerId: workspace.ownerId },
-      access: { role: member.role, permissions: this.permissions(member) },
-      metrics: { todayBookings, pendingRequests, upcomingBookings, activeMembers, completedThisMonth },
+      access: { role: member.role, permissions: this.permissions(member), memberId: member.id, userId: member.userId, name: member.name, email: member.email },
+      metrics: { todayBookings, pendingRequests, upcomingBookings, activeMembers, completedThisMonth, openTasks },
       upcoming,
       team: canTeamView ? team.map(memberView) : [],
       activity: canTeamView || canViewAllBookings ? activity : [],
