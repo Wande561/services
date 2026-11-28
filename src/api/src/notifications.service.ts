@@ -16,8 +16,9 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly db: PrismaService, private readonly mail: MailService = new MailService()) {}
 
   onModuleInit() {
-    void this.sendUpcomingReminders();
-    this.reminderTimer = setInterval(() => void this.sendUpcomingReminders(), 30 * 60 * 1000);
+    if (process.env.VERCEL) return;
+    void this.sendUpcomingReminders().catch(() => {});
+    this.reminderTimer = setInterval(() => void this.sendUpcomingReminders().catch(() => {}), 30 * 60 * 1000);
     this.reminderTimer.unref?.();
   }
 
@@ -49,7 +50,8 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     return kinds;
   }
 
-  private async sendUpcomingReminders() {
+  async sendUpcomingReminders() {
+    let deliveryFailed = false;
     try {
       const now = new Date();
       const deadline = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -62,12 +64,15 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
         if (!version || version.expiresAt > deadline || version.expiresAt <= now) continue;
         const pref = await this.db.notificationPreference.findUnique({ where: { userId: quote.clientId }, select: { quoteReminders: true } });
         if (pref?.quoteReminders === false) continue;
-        const inserted = await this.db.quoteAlert.createMany({
+        await this.db.quoteAlert.createMany({
           data: [{ recipientId: quote.clientId, requestId: quote.id, message: `Your quotation for ${quote.listing.title} expires within 24 hours.`, dedupeKey: `quote-expiry:${quote.id}:${version.id}` }],
           skipDuplicates: true,
         });
-        if (inserted.count) {
-          await this.emailReminder(quote.clientId, 'Your quotation expires soon', `Your quotation for ${quote.listing.title} expires on ${this.formatReminderTime(version.expiresAt)}.`, `/quotes?request=${encodeURIComponent(quote.id)}`);
+        const key = `quote-expiry:${quote.id}:${version.id}`;
+        const alert = await this.db.quoteAlert.findUnique({ where: { dedupeKey: key }, select: { id: true, emailSentAt: true } });
+        if (alert && !alert.emailSentAt) {
+          if (await this.emailReminder(quote.clientId, 'Your quotation expires soon', `Your quotation for ${quote.listing.title} expires on ${this.formatReminderTime(version.expiresAt)}.`, `/quotes?request=${encodeURIComponent(quote.id)}`, key)) await this.db.quoteAlert.update({ where: { id: alert.id }, data: { emailSentAt: new Date() } });
+          else deliveryFailed = true;
         }
       }
       const upcoming = await this.db.booking.findMany({
@@ -79,23 +84,20 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
         const prefs = await this.db.notificationPreference.findMany({ where: { userId: { in: recipients } }, select: { userId: true, appointmentReminders: true } });
         const optedOut = new Set(prefs.filter(pref => !pref.appointmentReminders).map(pref => pref.userId));
         for (const recipientId of recipients.filter(id => !optedOut.has(id))) {
-          try {
-            await this.db.notification.create({
-              data: {
-                recipientId, bookingId: booking.id, kind: 'AppointmentReminder',
-                dedupeKey: `appointment-reminder:${booking.id}:${recipientId}`,
-              },
-            });
-          } catch (error) {
-            if ((error as { code?: string }).code === 'P2002') continue;
-            throw error;
+          const key = `appointment-reminder:${booking.id}:${recipientId}`;
+          await this.db.notification.createMany({ data: [{ recipientId, bookingId: booking.id, kind: 'AppointmentReminder', dedupeKey: key }], skipDuplicates: true });
+          const alert = await this.db.notification.findUnique({ where: { dedupeKey: key }, select: { id: true, emailSentAt: true } });
+          if (alert && !alert.emailSentAt) {
+            if (await this.emailReminder(recipientId, 'Appointment reminder', `Your ServiceConnect appointment for ${booking.serviceTitle} is coming up on ${this.formatReminderTime(booking.slot.startsAt)}.`, '/bookings', key)) await this.db.notification.update({ where: { id: alert.id }, data: { emailSentAt: new Date() } });
+            else deliveryFailed = true;
           }
-          await this.emailReminder(recipientId, 'Appointment reminder', `Your ServiceConnect appointment for ${booking.serviceTitle} is coming up on ${this.formatReminderTime(booking.slot.startsAt)}.`, '/bookings');
         }
       }
     } catch (error) {
       console.error('Scheduled reminder job failed.', error);
+      throw error;
     }
+    if (deliveryFailed) throw new Error('Some reminder emails could not be delivered.');
   }
 
   private formatReminderTime(value: Date) {
@@ -105,14 +107,15 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     return `${formatted} SAST`;
   }
 
-  private async emailReminder(userId: string, subject: string, message: string, path: string) {
+  private async emailReminder(userId: string, subject: string, message: string, path: string, idempotencyKey: string): Promise<boolean> {
     const user = await this.db.user.findUnique({
       where: { id: userId },
       select: { email: true, name: true, notificationPreference: { select: { emailReminders: true } } },
     });
-    if (!user?.email || user.notificationPreference?.emailReminders === false) return;
+    if (!user?.email || user.notificationPreference?.emailReminders === false) return true;
     const url = new URL(path, process.env.FRONTEND_URL || 'http://localhost:3000');
-    await this.mail.send({
+    return this.mail.send({
+      idempotencyKey,
       to: user.email,
       subject: `ServiceConnect: ${subject}`,
       text: `Hi ${user.name?.trim() || 'there'},\n\n${message}\n\n${url}\n\nYou can change reminder emails in Settings.`,

@@ -1,0 +1,9 @@
+name = "serviceconnect-reminders"
+main = "worker.js"
+compatibility_date = "2026-11-27"
+
+[vars]
+REMINDER_API_URL = "https://serviceconnect-api.vercel.app/notifications/reminders/run"
+
+[triggers]
+crons = ["*/30 * * * *"]

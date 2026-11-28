@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Header, Param, Patch, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, Patch, Query, Req, UnauthorizedException } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { NotificationsService } from './notifications.service';
@@ -13,6 +14,18 @@ export class NotificationsController {
   async list(@Req() req: Request, @Query('before') before: unknown) {
     const account = await this.auth.requireProfile(req.cookies?.session);
     return this.notifications.list(account.id, before);
+  }
+
+  // Called by a trusted scheduler, not by the browser.
+  @Get('reminders/run')
+  @Header('Cache-Control', 'no-store')
+  async runReminders(@Req() req: Request) {
+    const secret = process.env.CRON_SECRET;
+    const supplied = req.get('authorization') ?? '';
+    const expected = secret ? `Bearer ${secret}` : '';
+    if (!secret || Buffer.byteLength(supplied) !== Buffer.byteLength(expected) || !timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) throw new UnauthorizedException();
+    await this.notifications.sendUpcomingReminders();
+    return { success: true };
   }
 
   @Get('unread')
