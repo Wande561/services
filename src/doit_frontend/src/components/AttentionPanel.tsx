@@ -121,13 +121,13 @@ export default function AttentionPanel({ role, bookings, quotes, loading }: {
     : providerItems(bookings ?? [], quotes ?? [], now);
   const visible = items.sort((a, b) => a.priority - b.priority).slice(0, 6);
 
-  return <section className="dashboard-panel attention-panel mt-6" aria-labelledby="attention-heading">
+  return <section className="dashboard-panel attention-panel mt-6 rounded-2xl border border-home-line p-6" aria-labelledby="attention-heading">
     <div className="attention-panel__head">
       <div><p className="dashboard-kicker">NEXT STEPS</p><h2 id="attention-heading">Needs your attention</h2><p>Everything that is waiting on you, in one place.</p></div>
       {visible.length > 0 && <span className="attention-count" aria-label={`${visible.length} items need attention`}>{visible.length}</span>}
     </div>
     {loading && <p className="dashboard-empty">Checking your workspace…</p>}
-    {!loading && !visible.length && <p className="dashboard-empty">You’re all caught up. New requests and reminders will appear here.</p>}
+    {!loading && !visible.length && <div className="attention-empty"><span className="attention-empty__icon"><CheckCircle2 aria-hidden="true" /></span><div><strong>All caught up</strong><p>New requests and updates will appear here.</p></div></div>}
     {visible.length > 0 && <div className="attention-list">{visible.map(item => {
       const Icon = icons[item.icon];
       return <Link key={item.id} to={item.href} className={`attention-item attention-item--${item.icon}`}>

@@ -123,7 +123,8 @@ test('provider failures return a safe support message and log metadata only', as
     { record: event => events.push(event) },
   );
   const result = await support.reply({ userId: 'provider-a', role: 'provider' }, { message: 'How do I respond to a quote request?' });
-  assert.match(result.answer, /trouble responding/);
+  assert.match(result.answer, /temporarily unavailable/);
+  assert.match(result.answer, /Open Quotes/);
   assert.doesNotMatch(result.answer, /sk-private|stack|database/i);
   assert.deepEqual(events, [{ userId: 'provider-a', endpoint: 'support', provider: 'anthropic', success: false }]);
 });
@@ -189,4 +190,16 @@ test('Anthropic provider client sends bounded messages without tools', async () 
     assert.equal(Object.hasOwn(body, 'tools'), false);
     assert.deepEqual(result, { text: 'Verified response.', tokenUsage: 15 });
   } finally { global.fetch = previousFetch; }
+});
+
+
+test('quote requests get a clear guide when the AI provider is not configured', async () => {
+  const support = new SupportService(
+    { getProviderConfiguration: () => { throw new Error('not configured'); }, selectedProvider: () => 'openai' },
+    {}, new SupportKnowledgeService(), new SupportConversationService(), { record: () => {} },
+  );
+  const result = await support.reply({ userId: 'client-a', role: 'client' }, { message: 'How do I request a quote?' });
+  assert.match(result.answer, /temporarily unavailable/);
+  assert.match(result.answer, /Open Services/);
+  assert.match(result.answer, /Request a quote/);
 });
