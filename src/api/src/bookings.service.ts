@@ -195,7 +195,7 @@ export class BookingsService {
         await lockProfiles(tx, providerId, clientId);
         const listing = await tx.serviceListing.findUnique({
           where: { id: listingId, providerId, isPublished: true },
-          select: { title: true, priceCents: true, maxPriceCents: true, priceUnit: true },
+          select: { title: true, workspaceId: true, priceCents: true, maxPriceCents: true, priceUnit: true },
         });
         if (!listing) throw new NotFoundException('This service has no matching availability slot');
 
@@ -222,7 +222,7 @@ export class BookingsService {
 
         const created = await tx.booking.create({
           data: {
-            clientId, listingId, slotId, serviceTitle: listing.title, address, notes,
+            clientId, listingId, workspaceId: listing.workspaceId, slotId, serviceTitle: listing.title, address, notes,
             priceCents: listing.priceCents, maxPriceCents: listing.maxPriceCents, priceUnit: listing.priceUnit,
           },
           select: bookingFields,
