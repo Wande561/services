@@ -50,12 +50,16 @@ test('mail service sends a bounded Resend request without extra payload fields',
       assert.equal(sent.url, 'https://api.resend.com/emails');
       assert.equal(sent.options.method, 'POST');
       assert.equal(sent.options.headers.Authorization, 'Bearer test-key');
-      assert.deepEqual(JSON.parse(sent.options.body), {
-        from: 'ServiceConnect <hello@example.com>',
-        to: ['client@example.com'],
-        subject: 'Appointment reminder',
-        text: 'Tomorrow at 09:00.',
-      });
+      const payload = JSON.parse(sent.options.body);
+      assert.equal(payload.from, 'ServiceConnect <hello@example.com>');
+      assert.deepEqual(payload.to, ['client@example.com']);
+      assert.equal(payload.subject, 'Appointment reminder');
+      assert.match(payload.text, /Tomorrow at 09:00\./);
+      assert.match(payload.text, /ServiceConnect · Verulam, South Africa/);
+      assert.match(payload.html, /Tomorrow at 09:00\./);
+      assert.match(payload.html, /ServiceConnect/);
+      assert.equal(typeof payload.reply_to, 'string');
+      assert.equal(payload.idempotencyKey, undefined);
     });
   } finally {
     global.fetch = previousFetch;

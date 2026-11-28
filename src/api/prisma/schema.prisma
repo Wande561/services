@@ -12,6 +12,7 @@ model User {
   email        String    @unique
   passwordHash String?
   googleId     String?   @unique
+  emailVerifiedAt DateTime? @db.Timestamptz(3)
   isVerificationAdmin Boolean @default(false)
   isSuspended Boolean @default(false)
   name         String?
@@ -45,6 +46,21 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@index([userId, expiresAt])
+}
+
+// A registration is only created as a User after the email owner follows the link.
+model PendingRegistration {
+  email     String   @id
+  name      String
+  tokenHash String   @unique
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now())
+}
+
+model AuthRateLimit {
+  key       String   @id
+  count     Int      @default(1)
+  expiresAt DateTime @db.Timestamptz(3)
 }
 
 model NotificationPreference {
@@ -315,6 +331,7 @@ model Notification {
   messageId     String?          @unique
   message       Message?         @relation(fields: [messageId], references: [id], onDelete: Cascade)
   dedupeKey     String?          @unique
+  emailSentAt   DateTime?
   createdAt     DateTime         @default(now())
   readAt        DateTime?
 
@@ -420,6 +437,7 @@ model QuoteAlert {
   createdAt DateTime @default(now())
   readAt DateTime?
   dedupeKey String? @unique
+  emailSentAt DateTime?
   @@index([recipientId, createdAt])
   @@index([recipientId, readAt])
 }

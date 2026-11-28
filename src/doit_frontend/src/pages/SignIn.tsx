@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Eye, EyeOff, MailCheck, Sparkles } from 'lucide-react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AppContext';
 import { accountDestination } from '../utils/accountRoutes';
@@ -17,6 +17,7 @@ export default function SignIn() {
   const [keepSignedIn, setKeepSignedIn] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
 
   useEffect(() => {
     const messages: Record<string, string> = {
@@ -41,7 +42,11 @@ export default function SignIn() {
     setBusy(true);
     setError('');
     try {
-      if (creating) await register(name, email, password, keepSignedIn);
+      if (creating) {
+        const next = await register(name, email, password, keepSignedIn);
+        if (next === 'google') { googleLogin(keepSignedIn); return; }
+        setVerificationSent(true);
+      }
       else await login(email, password, keepSignedIn);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed');
@@ -56,13 +61,13 @@ export default function SignIn() {
   }
 
   return <main className="auth-page"><div className="auth-shell"><Link to="/" className="auth-back"><ArrowLeft aria-hidden="true" /> Back to home</Link><div className="auth-layout"><div className="auth-story"><p className="discovery-kicker">GOOD PEOPLE. GOOD WORK.</p><h1>Good things<br /><em>start here.</em></h1><p>Connect with local people and find the right help for the work that matters to you.</p><div className="auth-story__mark"><Sparkles aria-hidden="true" /><span>LOCAL SERVICES<br />MADE SIMPLE</span></div><span className="auth-story__foot">SERVICECONNECT / YOUR COMMUNITY</span></div>
-    <section className="auth-card"><p className="discovery-kicker">{creating ? 'JOIN OUR COMMUNITY' : 'YOUR ACCOUNT'}</p><h2>{creating ? 'Create your account.' : 'Welcome back.'}</h2><p className="auth-card__intro">{creating ? 'A few details and you’re ready to get started.' : 'Sign in to continue where you left off.'}</p>
-      <form onSubmit={submit} className="auth-form">
+    <section className="auth-card"><p className="discovery-kicker">{verificationSent ? 'CHECK YOUR EMAIL' : creating ? 'JOIN OUR COMMUNITY' : 'YOUR ACCOUNT'}</p><h2>{verificationSent ? 'Check your inbox.' : creating ? 'Create your account.' : 'Welcome back.'}</h2><p className="auth-card__intro">{verificationSent ? 'Your next step is in your email.' : creating ? 'A few details and you’re ready to get started.' : 'Sign in to continue where you left off.'}</p>
+      {verificationSent ? <div role="status" className="auth-email-notice"><div className="auth-email-notice__icon"><MailCheck aria-hidden="true" /></div><p>If <strong>{email.trim()}</strong> can be used to create an account, we’ve sent a verification link there.</p><p>Open the link in the email to choose your password and finish setting up your account.</p><p className="auth-email-notice__hint">Check your spam folder too. The link expires in one hour. If you already have an account, sign in using your usual method, such as Google.</p><button type="button" className="auth-google" onClick={() => { setVerificationSent(false); setCreating(false); }}>Go to sign in</button><button type="button" className="auth-google" onClick={() => setVerificationSent(false)}>Try another email</button></div> : <><form onSubmit={submit} className="auth-form">
         {creating && <label>Name<input required value={name} onChange={e => setName(e.target.value)} autoComplete="name" placeholder="Your name" /></label>}
         <label>Email address<input required type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" /></label>
-        <label>Password<span className="auth-password"><input required type={showPassword ? 'text' : 'password'} minLength={8} value={password} onChange={e => setPassword(e.target.value)} autoComplete={creating ? 'new-password' : 'current-password'} placeholder="Enter your password" /><button type="button" onClick={() => setShowPassword(visible => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}>{showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button></span></label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" checked={keepSignedIn} onChange={e => setKeepSignedIn(e.target.checked)} style={{ width: 'auto', minHeight: 0 }} /> Keep me signed in</label>
+        {!creating && <label>Password<span className="auth-password"><input required type={showPassword ? 'text' : 'password'} minLength={8} value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="Enter your password" /><button type="button" onClick={() => setShowPassword(visible => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}>{showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button></span></label>}
+        {!creating && <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" checked={keepSignedIn} onChange={e => setKeepSignedIn(e.target.checked)} style={{ width: 'auto', minHeight: 0 }} /> Keep me signed in</label>}
         {error && <p role="alert" className="auth-error">{error}</p>}<button disabled={busy} className="auth-submit">{busy ? 'Please wait…' : creating ? 'Create account' : 'Sign in'} <ArrowRight aria-hidden="true" /></button>
-      </form>{!creating && <Link className="mt-3 inline-block text-sm text-emerald-300 underline" to="/forgot-password">Forgot your password?</Link>}<div className="auth-divider"><span />or<span /></div><button type="button" onClick={() => { if (searchParams.get('book')) sessionStorage.setItem('pendingQuote', searchParams.toString()); else sessionStorage.removeItem('pendingQuote'); googleLogin(keepSignedIn); }} className="auth-google">Continue with Google <ArrowRight aria-hidden="true" /></button><p className="auth-switch">{creating ? 'Already have an account?' : 'New to ServiceConnect?'} <button type="button" onClick={() => { setCreating(!creating); setError(''); }}>{creating ? 'Sign in' : 'Create an account'}</button></p>
+      </form>{!creating && <Link className="mt-3 inline-block text-sm text-emerald-300 underline" to="/forgot-password">Forgot your password?</Link>}<div className="auth-divider"><span />or<span /></div><button type="button" onClick={() => { if (searchParams.get('book')) sessionStorage.setItem('pendingQuote', searchParams.toString()); else sessionStorage.removeItem('pendingQuote'); googleLogin(keepSignedIn); }} className="auth-google">Continue with Google <ArrowRight aria-hidden="true" /></button><p className="auth-switch">{creating ? 'Already have an account?' : 'New to ServiceConnect?'} <button type="button" onClick={() => { setCreating(!creating); setError(''); }}>{creating ? 'Sign in' : 'Create an account'}</button></p></>}
     </section></div></div></main>;
 }

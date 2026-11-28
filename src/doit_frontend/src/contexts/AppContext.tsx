@@ -10,7 +10,7 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   login: (email: string, password: string, keepSignedIn?: boolean) => Promise<void>;
-  register: (name: string, email: string, password: string, keepSignedIn?: boolean) => Promise<void>;
+  register: (name: string, email: string, password: string, keepSignedIn?: boolean) => Promise<'google' | 'check-email'>;
   completeOnboarding: (input: OnboardingInput) => Promise<void>;
   switchRole: (input: OnboardingInput) => Promise<void>;
   updateProfile: (input: Omit<OnboardingInput, 'role'>) => Promise<void>;
@@ -40,9 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(user);
   };
   const register = async (name: string, email: string, password: string, keepSignedIn = false) => {
-    const user = await apiRequest<Account>('/auth/register', { method: 'POST', data: { name, email, password, keepSignedIn } });
-    queryClient.clear();
-    setCurrentUser(user);
+    const result = await apiRequest<{ next?: 'google' | 'check-email' }>('/auth/register', { method: 'POST', data: { name, email, password, keepSignedIn } });
+    return result.next === 'google' ? 'google' : 'check-email';
   };
   const completeOnboarding = async (input: OnboardingInput) => {
     const user = await apiRequest<Account>('/auth/onboarding', { method: 'POST', data: input });

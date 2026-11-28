@@ -5,7 +5,7 @@ import { apiRequest } from '../utils/apiRequest';
 
 export default function ResetPassword() {
   const [params, setParams] = useSearchParams();
-  const token = params.get('token') ?? '';
+  const [token] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('token') || params.get('token') || '');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);

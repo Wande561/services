@@ -20,10 +20,15 @@ export class AuthController {
   }
 
   @Post('register')
-  async register(@Body() body: any, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async register(@Body() body: any, @Req() req: Request) {
     checkFrontendOrigin(req.get('origin'));
-    const user = await this.auth.register(body?.email, body?.password, body?.name);
-    return this.signIn(user.id, res, body?.keepSignedIn === true);
+    return this.auth.register(body?.email, body?.password, body?.name);
+  }
+
+  @Post('register/complete')
+  async completeRegistration(@Body() body: any, @Req() req: Request) {
+    checkFrontendOrigin(req.get('origin'));
+    return this.auth.completeRegistration(body?.token, body?.password);
   }
 
   @Post('login')
@@ -31,6 +36,12 @@ export class AuthController {
     checkFrontendOrigin(req.get('origin'));
     const user = await this.auth.login(body?.email, body?.password);
     return this.signIn(user.id, res, body?.keepSignedIn === true);
+  }
+
+  @Get('password-reset/config')
+  @Header('Cache-Control', 'no-store')
+  passwordResetConfig() {
+    return { configured: this.auth.passwordResetConfigured() };
   }
 
   @Post('password-reset/request')

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { AccountRole, Prisma, ServiceCategory } from '@prisma/client';
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
@@ -50,18 +50,66 @@ export class AuthService {
     }
   }
 
-  async register(email: unknown, password: unknown, name: unknown) {
+  private async limitMail(kind: string, email: string) {
+    // Atomic, shared across serverless instances. Do not store email addresses in the limiter.
+    const keys = [this.hashToken(`${kind}:${email}`), this.hashToken('transactional-mail:global')];
+    for (const [index, key] of keys.entries()) {
+      const rows = await this.db.$queryRaw<Array<{ count: number }>>`
+        INSERT INTO "AuthRateLimit" ("key", "count", "expiresAt") VALUES (${key}, 1, NOW() + INTERVAL '1 hour')
+        ON CONFLICT ("key") DO UPDATE SET
+          "count" = CASE WHEN "AuthRateLimit"."expiresAt" <= NOW() THEN 1 ELSE "AuthRateLimit"."count" + 1 END,
+          "expiresAt" = CASE WHEN "AuthRateLimit"."expiresAt" <= NOW() THEN NOW() + INTERVAL '1 hour' ELSE "AuthRateLimit"."expiresAt" END
+        RETURNING "count"`;
+      if (rows[0].count > (index === 0 ? 5 : 15)) throw new HttpException('Too many requests. Please try again later.', 429);
+    }
+  }
+
+  async register(email: unknown, _password: unknown, name: unknown) {
     const normalized = this.normalizeEmail(email);
-    this.validatePassword(password);
     if (typeof name !== 'string' || !name.trim() || name.trim().length > 100) throw new BadRequestException('Enter your name');
+    if (!this.mail.isConfigured()) throw new ServiceUnavailableException('Email verification is temporarily unavailable. Please try again later.');
+    await this.limitMail('registration', normalized);
+    const existing = await this.db.user.findUnique({ where: { email: normalized }, select: { googleId: true } });
+    if (existing) return { success: true, next: existing.googleId ? 'google' : 'check-email' };
+    const token = randomBytes(32).toString('base64url');
+    const data = { name: name.trim(), tokenHash: this.hashToken(token), expiresAt: new Date(Date.now() + 60 * 60 * 1000) };
+    await this.db.pendingRegistration.upsert({ where: { email: normalized }, create: { email: normalized, ...data }, update: data });
+    const url = new URL('/verify-email', process.env.FRONTEND_URL || 'http://localhost:3000');
+    url.hash = new URLSearchParams({ token }).toString();
+    const sent = await this.mail.send({ to: normalized, subject: 'Confirm your ServiceConnect email', text: `Hi ${name.trim()},\n\nConfirm your email and choose a password to finish creating your account:\n\n${url}\n\nThis link expires in one hour. If you did not request an account, ignore this email.` });
+    if (!sent) throw new ServiceUnavailableException('We could not send the verification email. Please try again later.');
+    return { success: true };
+  }
+
+  async completeRegistration(token: unknown, password: unknown) {
+    if (typeof token !== 'string' || token.length < 30 || token.length > 200) throw new BadRequestException('This verification link is invalid or has expired');
+    this.validatePassword(password);
+    const tokenHash = this.hashToken(token);
     const salt = randomBytes(16).toString('hex');
     const hash = (await scrypt(password, salt, 64)) as Buffer;
     try {
-      return await this.db.user.create({ data: { email: normalized, name: name.trim(), passwordHash: `${salt}:${hash.toString('hex')}` } });
+      const user = await this.db.$transaction(async tx => {
+        const pending = await tx.pendingRegistration.findUnique({ where: { tokenHash } });
+        if (!pending || pending.expiresAt <= new Date()) throw new BadRequestException('This verification link is invalid or has expired');
+        const used = await tx.pendingRegistration.deleteMany({ where: { tokenHash, expiresAt: { gt: new Date() } } });
+        if (used.count !== 1) throw new BadRequestException('This verification link is invalid or has expired');
+        return tx.user.create({ data: { email: pending.email, name: pending.name, emailVerifiedAt: new Date(), passwordHash: `${salt}:${hash.toString('hex')}` }, select: { email: true, name: true } });
+      });
+      await this.sendWelcomeEmail(user.email, user.name);
     } catch (error: any) {
-      if (error.code === 'P2002') throw new ConflictException('An account with this email already exists');
+      if (error.code === 'P2002') throw new BadRequestException('This verification link is invalid or has expired');
       throw error;
     }
+    return { success: true };
+  }
+
+  private async sendWelcomeEmail(email: string, name: string | null) {
+    const home = new URL('/', process.env.FRONTEND_URL || 'http://localhost:3000');
+    await this.mail.send({
+      to: email,
+      subject: 'Welcome to ServiceConnect',
+      text: `Hi ${name?.trim() || 'there'},\n\nWelcome to ServiceConnect! Your account is ready.\n\nFind local services, request quotes and keep track of your bookings, all in one place.\n\nGet started: ${home}\n\nWe're glad you're here.\nThe ServiceConnect team`,
+    });
   }
 
   async login(email: unknown, password: unknown) {
@@ -76,10 +124,16 @@ export class AuthService {
     return user;
   }
 
+  passwordResetConfigured() {
+    return this.mail.isConfigured();
+  }
+
   async requestPasswordReset(email: unknown) {
     const normalized = this.normalizeEmail(email);
+    const emailConfigured = this.passwordResetConfigured();
+    if (!emailConfigured) return { success: true, emailConfigured };
+    await this.limitMail('password-reset', normalized);
     const user = await this.db.user.findUnique({ where: { email: normalized }, select: { id: true, email: true, passwordHash: true, name: true } });
-    const emailConfigured = this.mail.isConfigured();
     if (!user?.passwordHash) return { success: true, emailConfigured };
 
     const rawToken = randomBytes(32).toString('base64url');
@@ -94,7 +148,7 @@ export class AuthService {
 
   private async sendPasswordResetEmail(email: string, name: string | null, token: string) {
     const resetUrl = new URL('/reset-password', process.env.FRONTEND_URL || 'http://localhost:3000');
-    resetUrl.searchParams.set('token', token);
+    resetUrl.hash = new URLSearchParams({ token }).toString();
     await this.mail.send({
       to: email,
       subject: 'Reset your ServiceConnect password',
@@ -113,7 +167,7 @@ export class AuthService {
     await this.db.$transaction(async tx => {
       const used = await tx.passwordResetToken.deleteMany({ where: { tokenHash, expiresAt: { gt: new Date() } } });
       if (used.count !== 1) throw new BadRequestException('This password reset link is invalid or has expired');
-      await tx.user.update({ where: { id: reset.userId }, data: { passwordHash: `${salt}:${hash.toString('hex')}` } });
+      await tx.user.update({ where: { id: reset.userId }, data: { passwordHash: `${salt}:${hash.toString('hex')}`, emailVerifiedAt: new Date() } });
       await tx.session.deleteMany({ where: { userId: reset.userId } });
       await tx.passwordResetToken.deleteMany({ where: { userId: reset.userId } });
     });
@@ -146,7 +200,9 @@ export class AuthService {
     if (existing) return existing;
     if (await this.db.user.findUnique({ where: { email } })) throw new ConflictException('An account with this email already exists. Sign in with your password.');
     try {
-      return await this.db.user.create({ data: { email, googleId: profile.sub, name: profile.name } });
+      const user = await this.db.user.create({ data: { email, googleId: profile.sub, emailVerifiedAt: new Date(), name: profile.name } });
+      await this.sendWelcomeEmail(user.email, user.name);
+      return user;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const linked = await this.db.user.findUnique({ where: { googleId: profile.sub } });

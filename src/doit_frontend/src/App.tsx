@@ -9,6 +9,7 @@ import FormFeedback from './components/FormFeedback';
 import SignIn from './pages/SignIn';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 import Onboarding from './pages/Onboarding';
 import Services from './pages/Services';
 import ListingDetail from './pages/ListingDetail';
@@ -64,6 +65,7 @@ function AppRoutes() {
             <Route path="/signin" element={<SignIn />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/about" element={<About />} />
             <Route path="/provider-login" element={<Navigate to="/signin?role=provider" replace />} />
