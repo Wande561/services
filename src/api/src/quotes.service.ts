@@ -297,7 +297,24 @@ export class QuotesService {
       return tx.quoteRequest.findUniqueOrThrow({ where: { id: requestId }, select: selection });
     });
   }
-  async alerts(id: string) { return this.db.quoteAlert.findMany({ where: { recipientId: id }, include: { request: { select: { listing: { select: { title: true } } } } }, orderBy: { createdAt: 'desc' }, take: 50 }); }
+  async alerts(id: string) {
+    const alerts = await this.db.quoteAlert.findMany({ where: { recipientId: id }, include: { request: { select: {
+      listing: { select: { title: true } },
+      client: { select: { user: { select: { name: true } } } },
+      provider: { select: { businessName: true, user: { select: { name: true } } } },
+    } } }, orderBy: { createdAt: 'desc' }, take: 50 });
+    return alerts.map(({ request, ...alert }) => {
+      const clientName = request.client.user.name?.trim();
+      const providerName = request.provider.businessName?.trim() || request.provider.user.name?.trim();
+      let message = alert.message;
+      if (clientName) message = message.replace(/\b(?:The|the|A) client\b/g, () => clientName);
+      if (providerName) {
+        message = message.replace(/\b(?:The|the|A) provider\b/g, () => providerName);
+        if (message === 'Your quote request was sent.') message = `Your quote request was sent to ${providerName}.`;
+      }
+      return { ...alert, message, request: { listing: request.listing } };
+    });
+  }
   async readAllAlerts(id: string) { await this.db.quoteAlert.updateMany({ where: { recipientId: id, readAt: null }, data: { readAt: new Date() } }); return { success: true }; }
   async readAlert(id: string, alertId: string) { await this.db.quoteAlert.updateMany({ where: { id: alertId, recipientId: id }, data: { readAt: new Date() } }); return { success: true }; }
 }

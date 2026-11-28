@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRightLeft, ArrowUpRight, Bell, Briefcase, CalendarDays, CircleHelp, ClipboardList, FileText, Home, LayoutDashboard, LogOut, Menu, Scale, MessageSquare, Settings, ShieldCheck, Store, LifeBuoy, X } from 'lucide-react';
+import { ArrowRight, ArrowRightLeft, ArrowUpRight, Bell, Briefcase, CalendarDays, ChevronDown, CircleHelp, ClipboardList, FileText, Home, LayoutDashboard, LogOut, Menu, Scale, MessageSquare, Settings, ShieldCheck, Store, LifeBuoy, X } from 'lucide-react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AppContext';
 import type { OnboardingInput } from '../types';
@@ -8,6 +8,7 @@ import { accountHome } from '../utils/accountRoutes';
 import { inboxUnread } from '../utils/inbox';
 import { reliabilityUnread } from '../utils/reliability';
 import { quoteAlerts } from '../utils/quotes';
+import { tierLabel } from '../utils/verification';
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300';
 function BrandName() {
@@ -66,13 +67,31 @@ export default function SiteNavbar() {
       { to: '/notifications', label: 'Notifications', icon: Bell, count: (unread?.notifications ?? 0) + (quoteNotices?.filter(alert => !alert.readAt).length ?? 0) + (reliability?.count ?? 0) },
       ...(role === 'provider' ? [{ to: '/provider-dashboard/listings', label: 'My listings', icon: Store }, { to: '/provider-dashboard/hours', label: 'Working hours', icon: CalendarDays }] : []),
       { to: '/reliability', label: 'Reliability & credits', icon: Scale },
-      { to: '/complaints', label: 'Complaints & support', icon: LifeBuoy },
+      { to: '/complaints', label: 'Help & support', icon: LifeBuoy },
       { to: '/settings', label: 'Settings', icon: Settings },
       ...(currentUser?.isVerificationAdmin ? [{ to: '/admin', label: 'Admin centre', icon: ShieldCheck }] : []),
     ] : []),
     { to: '/about', label: 'About', icon: CircleHelp },
   ];
-  const panel = <div className="site-sidebar flex h-full flex-col bg-home-surface">
+  const providerNavigation = role === 'provider' && !adminMode;
+  const providerGroups = [
+    { label: 'Workspace', paths: ['/provider-dashboard', '/bookings', '/quotes', '/messages', '/services'] },
+    { label: 'Business', paths: ['/provider-dashboard/hours', '/reliability', '/provider-dashboard/listings'] },
+    { label: 'Administration', paths: ['/admin'] },
+  ];
+  const panel = providerNavigation ? <div className="site-sidebar provider-sidebar flex h-full flex-col">
+    <Link to="/provider-dashboard" onClick={() => setOpen(false)} className={`provider-sidebar__brand ${focus}`}><span>ServiceConnect</span></Link>
+    <Link to="/settings#verification-settings" onClick={() => setOpen(false)} className={`provider-sidebar__account ${focus}`}>
+      <span className="provider-sidebar__account-icon"><Briefcase size={17} aria-hidden="true" /></span><span><strong>{currentUser?.profile?.businessName || currentUser?.name || 'My business'}</strong><small>{tierLabel(currentUser?.profile?.verificationTier ?? 'Basic')}</small></span><ChevronDown size={15} aria-hidden="true" />
+    </Link>
+    <nav aria-label="Main navigation" className="provider-sidebar__nav">{providerGroups.filter(group => group.paths.some(path => links.some(link => link.to === path))).map(group => <div className="provider-sidebar__group" key={group.label}><p>{group.label}</p>{group.paths.map(path => {
+      const item = links.find(link => link.to === path);
+      if (!item) return null;
+      const Icon = item.icon;
+      return <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setOpen(false)} className={({ isActive }) => `provider-sidebar__link ${focus} ${isActive ? 'is-active' : ''}`}><Icon size={17} strokeWidth={1.7} aria-hidden="true" /><span>{item.label}</span>{!!item.count && <b>{item.count > 99 ? '99+' : item.count}</b>}</NavLink>;
+    })}</div>)}</nav>
+    <div className="provider-sidebar__footer"><NavLink to="/complaints" onClick={() => setOpen(false)} className={({ isActive }) => `provider-sidebar__link ${isActive ? 'is-active' : ''}`}><LifeBuoy size={17} aria-hidden="true" /><span>Help &amp; support</span></NavLink><NavLink to="/settings" onClick={() => setOpen(false)} className={({ isActive }) => `provider-sidebar__link ${isActive ? 'is-active' : ''}`}><Settings size={17} aria-hidden="true" /><span>Settings</span></NavLink><button type="button" onClick={() => void selectRole('client')} className={`provider-sidebar__switch ${focus}`}><ArrowRightLeft size={17} aria-hidden="true" /><span>Switch to client</span><ArrowRight size={15} aria-hidden="true" /></button>{roleError && <p role="alert">{roleError}</p>}{error && <p role="alert">{error}</p>}</div>
+  </div> : <div className="site-sidebar flex h-full flex-col bg-home-surface">
     <Link to={adminMode ? '/admin' : role ? accountHome(role) : '/'} onClick={() => setOpen(false)} className={`site-sidebar__brand flex items-center gap-3 border-b border-home-line px-5 py-6 ${focus}`}>
       <img src="/serviceconnect-logo.png" alt="" className="h-10 w-10 rounded-xl object-cover" />
       <BrandName />

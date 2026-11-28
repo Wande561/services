@@ -19,10 +19,9 @@ type BusinessInsights = {
 };
 type Observation = { answer: string };
 
-const card = 'rounded-2xl border border-home-line bg-home-surface p-5';
 const rangeOptions: Days[] = [7, 30, 90];
 
-function query(id: string, days: Days) {
+export function businessInsightsQuery(id: string, days: Days) {
   return {
     queryKey: ['providers', id, 'business-insights', days],
     queryFn: ({ signal }: { signal: AbortSignal }) => apiRequest<BusinessInsights>(`/providers/me/business-insights?days=${days}`, { signal }),
@@ -58,7 +57,7 @@ export default function ProviderBusinessInsights() {
   const [observation, setObservation] = useState('');
   const [observationError, setObservationError] = useState('');
   const [generating, setGenerating] = useState(false);
-  const data = useQuery(query(providerId, days));
+  const data = useQuery(businessInsightsQuery(providerId, days));
   const insight = data.data;
   const overview = insight?.overview;
   const groups = trendGroups(insight?.trends ?? [], days);
@@ -91,49 +90,23 @@ export default function ProviderBusinessInsights() {
     }
   }
 
-  return <section id="business-insights" className="mt-8 scroll-mt-24" aria-labelledby="business-insights-title">
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-      <div><p className="dashboard-kicker">PROVIDER ANALYTICS</p><h2 id="business-insights-title" className="text-3xl text-home-text">Business Insights</h2><p className="mt-1 text-sm text-emerald-300">Verified activity from your bookings, quotes, and services.</p></div>
-      <div className="flex rounded-xl border border-home-line bg-home-surface p-1" role="group" aria-label="Insights date range">
-        {rangeOptions.map(option => <button key={option} type="button" aria-pressed={days === option} onClick={() => { setDays(option); setObservation(''); setObservationError(''); }} className={`rounded-lg px-3 py-2 text-sm ${days === option ? 'bg-emerald-700 font-semibold text-white' : 'text-emerald-200 hover:bg-home-canvas'}`}>{option} days</button>)}
-      </div>
-    </div>
-
-    {data.isPending && <p className={`${card} text-emerald-200`} role="status">Loading business insights…</p>}
-    {data.isError && <p className={`${card} text-red-300`} role="alert">Business metrics could not be loaded. Refresh to try again.</p>}
+  const hasActivity = insight?.trends.some(row => row.bookingRequests || row.quoteRequests || row.completedBookings) ?? false;
+  return <section id="business-insights" className="provider-business-insights insights-redesign" aria-labelledby="business-insights-title">
+    <div className="insights-redesign__header"><div><p className="provider-home__eyebrow">YOUR PROGRESS</p><h2 id="business-insights-title">Business insights</h2><p>A closer look at how your business is doing.</p></div><div className="insights-redesign__range" role="group" aria-label="Insights date range">{rangeOptions.map(option => <button key={option} type="button" aria-pressed={days === option} onClick={() => { setDays(option); setObservation(''); setObservationError(''); }}>{option} days</button>)}</div></div>
+    {data.isPending && <p className="insights-redesign__notice" role="status">Loading business insights…</p>}
+    {data.isError && <p className="insights-redesign__notice" role="alert">Business insights could not be loaded. Refresh to try again.</p>}
     {insight && overview && <>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{metrics.map(metric => <article key={metric.label} className={`${card} min-h-32`}><p className="text-sm text-emerald-300">{metric.label}</p><p className="mt-2 text-3xl font-semibold text-home-text">{metric.value}</p><p className="mt-1 text-xs text-emerald-300">{metric.detail}</p></article>)}</div>
-
-      <div className="mt-5 grid gap-5 xl:grid-cols-[1.4fr_1fr]">
-        <article className={card}>
-          <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-xl font-semibold text-home-text">Booking and quote activity</h3><p className="mt-1 text-xs text-emerald-300">Counts by day in Africa/Johannesburg time. Confirmed and completed bookings use their recorded statuses.</p></div><p className="text-xs text-emerald-300">{insight.period.from} – {insight.period.to} exclusive</p></div>
-          {!insight.trends.some(row => row.bookingRequests || row.quoteRequests || row.completedBookings) && <p className="mt-6 rounded-xl bg-home-canvas p-4 text-sm text-emerald-200">No booking or quote activity was recorded in this period, so there is no trend to display.</p>}
-          {!!insight.trends.length && <div className="mt-6 overflow-x-auto pb-2"><div className="provider-insights-chart" style={{ minWidth: `${Math.max(560, groups.length * 54)}px` }} role="img" aria-label={`Daily grouped counts of booking requests, quote requests, and completed bookings for the last ${days} days`}>
-            {groups.map((row, index) => <div className="provider-insights-chart__group" key={`${row.label}-${index}`}><div className="provider-insights-chart__bars"><span title={`${row.bookingRequests} booking requests`} className="provider-insights-chart__bar is-booking" style={{ height: `${Math.max(3, row.bookingRequests / maximum * 100)}%` }} /><span title={`${row.quoteRequests} quote requests`} className="provider-insights-chart__bar is-quote" style={{ height: `${Math.max(3, row.quoteRequests / maximum * 100)}%` }} /><span title={`${row.completedBookings} completed bookings`} className="provider-insights-chart__bar is-completed" style={{ height: `${Math.max(3, row.completedBookings / maximum * 100)}%` }} /></div><span className="provider-insights-chart__label">{row.label}</span></div>)}
-          </div><div className="mt-3 flex flex-wrap gap-4 text-xs text-emerald-200"><span><i className="provider-insights-legend is-booking" />Booking requests</span><span><i className="provider-insights-legend is-quote" />Quote requests</span><span><i className="provider-insights-legend is-completed" />Completed</span></div></div>}
-          <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-home-canvas p-4"><p className="text-xs text-emerald-300">Booking request change</p><p className="mt-1 font-semibold text-home-text">{deltaText(insight.comparison.bookingRequestChangePercent)}</p><p className="mt-1 text-xs text-emerald-300">Previous period: {insight.comparison.previousBookingRequests}</p></div><div className="rounded-xl bg-home-canvas p-4"><p className="text-xs text-emerald-300">Quote request change</p><p className="mt-1 font-semibold text-home-text">{deltaText(insight.comparison.quoteRequestChangePercent)}</p><p className="mt-1 text-xs text-emerald-300">Previous period: {insight.comparison.previousQuoteRequests}</p></div></div>
-        </article>
-
-        <article className={card}>
-          <h3 className="text-xl font-semibold text-home-text">Quote outcomes</h3><p className="mt-1 text-xs text-emerald-300">Outcomes recorded in this period; pending and active quotes are excluded from the rate.</p>
-          <div className="mt-5 flex items-end gap-3"><p className="text-4xl font-semibold text-home-text">{overview.quoteAcceptanceRate === null ? '—' : `${overview.quoteAcceptanceRate}%`}</p><p className="pb-1 text-sm text-emerald-300">acceptance rate</p></div>
-          {overview.quoteOutcomeCount === 0 ? <p className="mt-2 text-sm text-emerald-300">Not enough quote outcomes in this period to calculate a rate.</p> : <p className="mt-2 text-xs text-emerald-300">{overview.acceptedQuotes} accepted of {overview.quoteOutcomeCount} outcomes (accepted + rejected after submission + expired).</p>}
-          <dl className="mt-5 grid grid-cols-2 gap-3 text-sm"><div className="rounded-xl bg-home-canvas p-3"><dt className="text-emerald-300">Accepted</dt><dd className="mt-1 text-xl font-semibold text-home-text">{overview.acceptedQuotes}</dd></div><div className="rounded-xl bg-home-canvas p-3"><dt className="text-emerald-300">Rejected</dt><dd className="mt-1 text-xl font-semibold text-home-text">{overview.rejectedQuotes}</dd></div><div className="rounded-xl bg-home-canvas p-3"><dt className="text-emerald-300">Expired</dt><dd className="mt-1 text-xl font-semibold text-home-text">{overview.expiredQuotes}</dd></div><div className="rounded-xl bg-home-canvas p-3"><dt className="text-emerald-300">Pending request</dt><dd className="mt-1 text-xl font-semibold text-home-text">{overview.pendingQuoteRequests}</dd></div></dl>
-          <p className="mt-3 text-xs text-emerald-300">Expired means the latest submitted version passed its expiry time while still quoted; it does not mean the client rejected it. Response time is omitted because the application does not record a dedicated provider response event.</p>
-        </article>
+      <div className="insights-redesign__highlights">{[metrics[1], metrics[2], metrics[6], metrics[7]].map(metric => <div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.detail}</small></div>)}</div>
+      <div className="insights-redesign__sections">
+        <details><summary><span><strong>Activity &amp; trends</strong><small>Bookings, quotations and changes over time</small></span><span aria-hidden="true">+</span></summary><div className="insights-redesign__content">
+          <div className="insights-redesign__mini-grid">{metrics.map(metric => <div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.detail}</small></div>)}</div>
+          <h3>Booking and quote activity</h3><p className="insights-redesign__muted">{days === 7 ? 'Daily' : 'Weekly'} activity · South African time</p>
+          {!hasActivity ? <p className="insights-redesign__notice">No activity in this period yet.</p> : <><div className="insights-redesign__chart-wrap"><div className="provider-insights-chart" style={{ minWidth: `${Math.max(560, groups.length * 54)}px` }} role="img" aria-label={`Booking requests, quote requests and completed bookings over the last ${days} days`}>{groups.map((row, index) => <div className="provider-insights-chart__group" key={`${row.label}-${index}`}><div className="provider-insights-chart__bars"><span title={`${row.bookingRequests} booking requests`} className="provider-insights-chart__bar is-booking" style={{ height: `${row.bookingRequests / maximum * 100}%`, visibility: row.bookingRequests ? 'visible' : 'hidden' }} /><span title={`${row.quoteRequests} quote requests`} className="provider-insights-chart__bar is-quote" style={{ height: `${row.quoteRequests / maximum * 100}%`, visibility: row.quoteRequests ? 'visible' : 'hidden' }} /><span title={`${row.completedBookings} completed bookings`} className="provider-insights-chart__bar is-completed" style={{ height: `${row.completedBookings / maximum * 100}%`, visibility: row.completedBookings ? 'visible' : 'hidden' }} /></div><span className="provider-insights-chart__label">{row.label}</span></div>)}</div></div><div className="insights-redesign__legend"><span><i className="provider-insights-legend is-booking" />Booking requests</span><span><i className="provider-insights-legend is-quote" />Quote requests</span><span><i className="provider-insights-legend is-completed" />Completed</span></div><ul className="sr-only">{groups.map((row, index) => <li key={`${row.label}-${index}`}>{row.label}: {row.bookingRequests} booking requests, {row.quoteRequests} quote requests, {row.completedBookings} completed bookings</li>)}</ul></>}
+          <div className="insights-redesign__comparison"><div><span>Booking request change</span><strong>{deltaText(insight.comparison.bookingRequestChangePercent)}</strong><small>Previous period: {insight.comparison.previousBookingRequests}</small></div><div><span>Quote request change</span><strong>{deltaText(insight.comparison.quoteRequestChangePercent)}</strong><small>Previous period: {insight.comparison.previousQuoteRequests}</small></div></div>
+        </div></details>
+        <details><summary><span><strong>Quote outcomes</strong><small>See how clients responded to your quotes</small></span><span aria-hidden="true">+</span></summary><div className="insights-redesign__content"><div className="insights-redesign__rate"><strong>{overview.quoteAcceptanceRate === null ? '—' : `${overview.quoteAcceptanceRate}%`}</strong><span>acceptance rate</span></div><p className="insights-redesign__muted">{overview.quoteOutcomeCount === 0 ? 'Not enough quote outcomes to calculate a rate yet.' : `${overview.acceptedQuotes} accepted out of ${overview.quoteOutcomeCount} outcomes.`} Active quotes are excluded.</p><dl className="insights-redesign__mini-grid">{[['Accepted',overview.acceptedQuotes],['Rejected',overview.rejectedQuotes],['Expired',overview.expiredQuotes],['Pending requests',overview.pendingQuoteRequests]].map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><p className="insights-redesign__muted">Expired quotes passed their expiry date and were not necessarily rejected.</p></div></details>
+        <details><summary><span><strong>Services &amp; opportunities</strong><small>Service activity and suggestions</small></span><span aria-hidden="true">+</span></summary><div className="insights-redesign__content"><h3>Service activity</h3><p className="insights-redesign__muted">Requests and completed bookings by service.</p>{!insight.services.length ? <p className="insights-redesign__notice">No service listings to compare yet.</p> : <ul className="insights-redesign__list">{insight.services.map(service => <li key={service.serviceId}><strong>{service.service}</strong><span>{service.quoteRequests} quotes · {service.bookingRequests} bookings · {service.completedBookings} completed</span></li>)}</ul>}<h3>Opportunities to review</h3>{!insight.recommendations.length ? <p className="insights-redesign__muted">No immediate suggestions right now.</p> : <ul className="insights-redesign__list">{insight.recommendations.map(item => <li key={item.key}><strong>{item.title}</strong><span>{item.detail}</span></li>)}</ul>}<div className="insights-redesign__ai"><div><h3>AI business observations</h3><p className="insights-redesign__muted">Suggestions based on your business metrics.</p></div><button type="button" onClick={() => void generateObservation()} disabled={generating}>{generating ? 'Preparing…' : 'Generate observations'}</button></div>{generating && <p className="insights-redesign__muted" role="status">Analysing your selected period…</p>}{observationError && <p className="insights-redesign__notice" role="alert">{observationError}</p>}{observation && <p className="insights-redesign__notice whitespace-pre-wrap">{observation}</p>}</div></details>
       </div>
-
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <article className={card}><h3 className="text-xl font-semibold text-home-text">Service activity</h3><p className="mt-1 text-xs text-emerald-300">Requests and completed bookings per service. Activity is not a measure of profit.</p>{!insight.services.length ? <p className="mt-4 text-sm text-emerald-300">No service listings are available to compare.</p> : <ul className="mt-4 space-y-3">{insight.services.map(service => <li key={service.serviceId} className="flex items-center justify-between gap-4 rounded-xl bg-home-canvas p-3"><span className="min-w-0 truncate font-medium text-home-text">{service.service}</span><span className="shrink-0 text-right text-xs text-emerald-200">{service.quoteRequests} quotes · {service.bookingRequests} bookings · {service.completedBookings} completed</span></li>)}</ul>}</article>
-        <article className={card}><h3 className="text-xl font-semibold text-home-text">Opportunities to review</h3>{!insight.recommendations.length ? <p className="mt-4 text-sm text-emerald-300">No immediate items were identified from these records.</p> : <ul className="mt-4 space-y-3">{insight.recommendations.map(item => <li key={item.key} className="rounded-xl border border-home-line bg-home-canvas p-4"><p className="font-semibold text-home-text">{item.title}</p><p className="mt-1 text-sm text-emerald-200">{item.detail}</p></li>)}</ul>}</article>
-      </div>
-
-      <article className={`${card} mt-5`}>
-        <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-xl font-semibold text-home-text">AI business observations</h3><p className="mt-1 text-sm text-emerald-300">Generated from these aggregated metrics only; suggestions do not change your account or marketplace records.</p></div><button type="button" className="btn-primary" onClick={() => void generateObservation()} disabled={generating}>{generating ? 'Preparing observations…' : 'Generate observations'}</button></div>
-        {generating && <p className="mt-4 text-sm text-emerald-200" role="status">Analysing your selected period…</p>}
-        {observationError && <p className="mt-4 text-sm text-amber-200" role="alert">{observationError}</p>}
-        {observation && <p className="mt-4 whitespace-pre-wrap rounded-xl bg-home-canvas p-4 text-sm leading-relaxed text-home-text">{observation}</p>}
-      </article>
     </>}
   </section>;
 }

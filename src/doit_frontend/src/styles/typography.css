@@ -1,0 +1,27 @@
+/* Editorial typography inspired by the reference. */
+html, body, .app-theme, .landing-page { font-family: 'DM Sans', system-ui, sans-serif; }
+button, input, select, textarea { font-family: inherit; }
+.app-theme :is(h1, h2, h3), .landing-page :is(h1, h2, h3) { font-family: 'Cormorant Garamond', Georgia, serif; }
+.page-stage :where(main) h1,
+.app-theme .provider-home__welcome h1,
+.page-stage main.provider-home .provider-home__welcome h1,
+.landing-page .landing-hero h1 { font-family: 'Bodoni Moda', Georgia, serif; font-weight: 400; letter-spacing: -.045em; }
+.app-theme :is(h1, h2, h3) em, .landing-page :is(h1, h2, h3) em { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -.025em; }
+.app-theme .provider-home .provider-home__section-head h2,
+.app-theme .provider-home .insights-redesign__header h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 400; }
+.app-theme .provider-home .provider-snapshot__card > strong,
+.app-theme .provider-home .insights-redesign__highlights strong,
+.app-theme .provider-home .insights-redesign__mini-grid :is(strong, dd) { font-family: 'Bodoni Moda', Georgia, serif; font-weight: 400; }
+.site-sidebar .provider-sidebar__brand,
+.app-theme:has(.provider-home) .provider-sidebar__brand,
+.landing-nav__brand { font-family: 'Bodoni Moda', Georgia, serif; }
+.app-theme .provider-home, .app-theme .support-assistant-header h2 { font-family: 'DM Sans', system-ui, sans-serif; }
+/* Delicate editorial type and true italics for emphasis. */
+.site-sidebar .provider-sidebar__brand,
+.app-theme:has(.provider-home) .provider-sidebar__brand,
+.landing-nav__brand { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 500; }
+.app-theme .provider-home .provider-snapshot__card > strong,
+.app-theme .provider-home .insights-redesign__highlights strong,
+.app-theme .provider-home .insights-redesign__mini-grid :is(strong, dd) { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 500; }
+.app-theme .provider-home__welcome h1 em { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-weight: 400; }
+.landing-page .landing-hero h1 em { font-family: 'Bodoni Moda', Georgia, serif; font-style: italic; font-weight: 400; }

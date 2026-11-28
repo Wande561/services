@@ -9,3 +9,6 @@ import App from './App'
 createRoot(document.getElementById('root')!).render(
   <App />,
 )
+
+import './styles/provider-home.css';
+import './styles/typography.css';

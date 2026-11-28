@@ -109,17 +109,22 @@ function providerItems(bookings: Booking[], requests: QuoteRequest[], now: numbe
   return items;
 }
 
-export default function AttentionPanel({ role, bookings, quotes, loading }: {
+export default function AttentionPanel({ role, bookings, quotes, loading, compact = false }: {
   role: 'client' | 'provider';
   bookings?: Booking[];
   quotes?: QuoteRequest[];
   loading?: boolean;
+  compact?: boolean;
 }) {
   const now = Date.now();
   const items = role === 'client'
     ? clientItems(bookings ?? [], quotes ?? [], now)
     : providerItems(bookings ?? [], quotes ?? [], now);
   const visible = items.sort((a, b) => a.priority - b.priority).slice(0, 6);
+
+  if (compact) return <section className="provider-attention" aria-label="Next steps">
+    {loading ? <p role="status">Checking your workspace…</p> : visible.length ? <><div className="provider-attention__heading"><span className="provider-attention__icon"><CalendarClock size={19} aria-hidden="true" /></span><div><strong>Needs your attention</strong><p>{visible.length} {visible.length === 1 ? 'update' : 'updates'} to review</p></div></div><div className="provider-attention__items">{visible.map(item => <Link key={item.id} to={item.href}><span><strong>{item.title}</strong><small>{item.detail}</small></span><ArrowUpRight size={16} aria-hidden="true" /></Link>)}</div></> : <><div className="provider-attention__heading"><span className="provider-attention__icon"><CheckCircle2 size={19} aria-hidden="true" /></span><div><strong>You’re all caught up</strong><p>New requests and updates will appear here.</p></div></div><Link className="provider-attention__link" to="/bookings">View bookings <ArrowUpRight size={16} aria-hidden="true" /></Link></>}
+  </section>;
 
   return <section className="dashboard-panel attention-panel mt-6 rounded-2xl border border-home-line p-6" aria-labelledby="attention-heading">
     <div className="attention-panel__head">
