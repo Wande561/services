@@ -9,6 +9,13 @@ export const workspacePermissions = [
   'bookings.manage',
   'bookings.assign',
   'services.manage',
+  'tasks.view',
+  'tasks.view.all',
+  'tasks.manage',
+  'bookings.notes',
+  'chat.view',
+  'chat.post',
+  'announcements.manage',
   'finance.view',
   'analytics.view',
 ] as const;
@@ -20,11 +27,12 @@ export const rolePermissions: Record<WorkspaceRole, WorkspacePermission[]> = {
   Owner: [...workspacePermissions],
   Manager: [
     'workspace.manage', 'team.view', 'team.manage',
-    'bookings.view', 'bookings.view.all', 'bookings.manage', 'bookings.assign',
-    'services.manage', 'analytics.view',
+    'bookings.view', 'bookings.view.all', 'bookings.manage', 'bookings.assign', 'bookings.notes',
+    'services.manage', 'tasks.view', 'tasks.view.all', 'tasks.manage',
+    'chat.view', 'chat.post', 'announcements.manage', 'analytics.view',
   ],
-  Staff: ['bookings.view'],
-  Receptionist: ['team.view', 'bookings.view', 'bookings.view.all', 'bookings.manage', 'bookings.assign'],
+  Staff: ['bookings.view', 'bookings.notes', 'tasks.view', 'tasks.manage', 'chat.view', 'chat.post'],
+  Receptionist: ['team.view', 'bookings.view', 'bookings.view.all', 'bookings.manage', 'bookings.assign', 'bookings.notes', 'tasks.view', 'tasks.view.all', 'tasks.manage', 'chat.view', 'chat.post'],
   Finance: ['bookings.view', 'bookings.view.all', 'finance.view', 'analytics.view'],
 };
 

@@ -39,6 +39,10 @@ model User {
   workspaceMemberships WorkspaceMember[]
   workspaceAssignmentsMade WorkspaceBookingAssignment[] @relation("WorkspaceAssignmentActor")
   workspaceActivities WorkspaceActivity[] @relation("WorkspaceActivityActor")
+  workspaceTasksCreated WorkspaceTask[] @relation("WorkspaceTaskCreator")
+  workspaceNotesAuthored WorkspaceBookingNote[] @relation("WorkspaceNoteAuthor")
+  workspaceAnnouncementsAuthored WorkspaceAnnouncement[] @relation("WorkspaceAnnouncementAuthor")
+  workspaceMessagesAuthored WorkspaceMessage[] @relation("WorkspaceMessageAuthor")
 }
 
 model PasswordResetToken {
@@ -179,6 +183,11 @@ model Workspace {
   quoteRequests QuoteRequest[]
   activities  WorkspaceActivity[]
   assignments WorkspaceBookingAssignment[]
+  tasks       WorkspaceTask[]
+  bookingNotes WorkspaceBookingNote[]
+  announcements WorkspaceAnnouncement[]
+  notifications WorkspaceNotification[]
+  messages    WorkspaceMessage[]
 
   @@index([ownerId, createdAt])
 }
@@ -205,6 +214,9 @@ model WorkspaceMember {
   services        WorkspaceMemberService[]
   timeOff         WorkspaceTimeOff[]
   assignments     WorkspaceBookingAssignment[]
+  tasksAssigned   WorkspaceTask[]          @relation("WorkspaceTaskAssignee")
+  notifications   WorkspaceNotification[]
+  messagesReceived WorkspaceMessage[]      @relation("WorkspaceMessageRecipient")
 
   @@unique([workspaceId, email])
   @@unique([workspaceId, userId])
@@ -263,6 +275,110 @@ model WorkspaceActivity {
   createdAt   DateTime  @default(now())
 
   @@index([workspaceId, createdAt])
+}
+
+enum WorkspaceTaskStatus {
+  Pending
+  InProgress
+  Completed
+}
+
+enum WorkspaceTaskPriority {
+  Low
+  Normal
+  High
+  Urgent
+}
+
+enum WorkspaceNotificationKind {
+  TaskAssigned
+  TaskUpdated
+  BookingNote
+  Announcement
+  DirectMessage
+}
+
+model WorkspaceTask {
+  id          String                @id @default(cuid())
+  workspaceId String
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  status      WorkspaceTaskStatus   @default(Pending)
+  priority    WorkspaceTaskPriority @default(Normal)
+  dueAt       DateTime?             @db.Timestamptz(3)
+  assigneeId  String?
+  assignee    WorkspaceMember?      @relation("WorkspaceTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdById String
+  createdBy   User                  @relation("WorkspaceTaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  bookingId   String?
+  booking     Booking?              @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  completedAt DateTime?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([workspaceId, status, dueAt])
+  @@index([assigneeId, status])
+  @@index([bookingId])
+}
+
+model WorkspaceBookingNote {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  bookingId   String
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User      @relation("WorkspaceNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  body        String
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId, bookingId, createdAt])
+}
+
+model WorkspaceAnnouncement {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User      @relation("WorkspaceAnnouncementAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  title       String
+  body        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId, createdAt])
+}
+
+model WorkspaceNotification {
+  id          String                     @id @default(cuid())
+  workspaceId String
+  workspace   Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      WorkspaceMember            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  kind        WorkspaceNotificationKind
+  message     String
+  href        String?
+  readAt      DateTime?
+  createdAt   DateTime                   @default(now())
+
+  @@index([memberId, readAt, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+model WorkspaceMessage {
+  id          String           @id @default(cuid())
+  workspaceId String
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User             @relation("WorkspaceMessageAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  recipientId String?
+  recipient   WorkspaceMember? @relation("WorkspaceMessageRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
+  body        String
+  createdAt   DateTime         @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([recipientId, createdAt])
 }
 
 enum PriceUnit {
@@ -393,6 +509,8 @@ model Booking {
   reliabilityAlerts ReliabilityAlert[]
   reschedules BookingReschedule[]
   workspaceAssignments WorkspaceBookingAssignment[]
+  workspaceNotes WorkspaceBookingNote[]
+  workspaceTasks WorkspaceTask[]
 
   @@index([clientId, createdAt])
   @@index([listingId])

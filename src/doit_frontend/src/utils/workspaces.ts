@@ -67,3 +67,104 @@ export function assignWorkspaceBooking(id: string, bookingId: string, memberIds:
 export function acceptWorkspaceInvitation(token: string) {
   return apiRequest<{ workspaceId: string; workspaceName: string }>('/workspaces/invitations/accept', { method: 'POST', data: { token } });
 }
+
+export function workspaceTasks(id: string) {
+  return queryOptions({
+    queryKey: [...workspaceKey, id, 'tasks'],
+    queryFn: ({ signal }) => apiRequest<import('../types').WorkspaceTask[]>(`/workspaces/${encodeURIComponent(id)}/tasks`, { signal }),
+    enabled: Boolean(id),
+    retry: false,
+  });
+}
+
+export function createWorkspaceTask(id: string, input: Record<string, unknown>) {
+  return apiRequest(`/workspaces/${encodeURIComponent(id)}/tasks`, { method: 'POST', data: input });
+}
+
+export function updateWorkspaceTask(id: string, taskId: string, input: Record<string, unknown>) {
+  return apiRequest(`/workspaces/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { method: 'PATCH', data: input });
+}
+
+export function deleteWorkspaceTask(id: string, taskId: string) {
+  return apiRequest(`/workspaces/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { method: 'DELETE' });
+}
+
+export function workspaceNotes(id: string, bookingId: string) {
+  return queryOptions({
+    queryKey: [...workspaceKey, id, 'notes', bookingId],
+    queryFn: ({ signal }) => apiRequest<import('../types').WorkspaceNote[]>(`/workspaces/${encodeURIComponent(id)}/bookings/${encodeURIComponent(bookingId)}/notes`, { signal }),
+    enabled: Boolean(id && bookingId),
+    retry: false,
+  });
+}
+
+export function addWorkspaceNote(id: string, bookingId: string, body: string) {
+  return apiRequest(`/workspaces/${encodeURIComponent(id)}/bookings/${encodeURIComponent(bookingId)}/notes`, { method: 'POST', data: { body } });
+}
+
+export function workspaceAnnouncements(id: string) {
+  return queryOptions({
+    queryKey: [...workspaceKey, id, 'announcements'],
+    queryFn: ({ signal }) => apiRequest<import('../types').WorkspaceAnnouncement[]>(`/workspaces/${encodeURIComponent(id)}/announcements`, { signal }),
+    enabled: Boolean(id),
+    retry: false,
+  });
+}
+
+export function createWorkspaceAnnouncement(id: string, input: { title: string; body: string }) {
+  return apiRequest(`/workspaces/${encodeURIComponent(id)}/announcements`, { method: 'POST', data: input });
+}
+
+export function deleteWorkspaceAnnouncement(id: string, announcementId: string) {
+  return apiRequest(`/workspaces/${encodeURIComponent(id)}/announcements/${encodeURIComponent(announcementId)}`, { method: 'DELETE' });
+}
+
+export function workspaceMessages(id: string, withMemberId?: string) {
+  const search = withMemberId ? `?with=${encodeURIComponent(withMemberId)}` : '';
+  return queryOptions({
+    queryKey: [...workspaceKey, id, 'messages', withMemberId ?? 'team'],
+    queryFn: ({ signal }) => apiRequest<import('../types').WorkspaceMessage[]>(`/workspaces/${encodeURIComponent(id)}/messages${search}`, { signal }),
+    enabled: Boolean(id),
+    retry: false,
+  });
+}
+
+export function sendWorkspaceMessage(id: string, input: { body: string; toMemberId?: string }) {
+  return apiRequest(`/workspaces/${encodeURIComponent(id)}/messages`, { method: 'POST', data: input });
+}
+
+export function workspaceNotifications(id: string) {
+  return queryOptions({
+    queryKey: [...workspaceKey, id, 'notifications'],
+    queryFn: ({ signal }) => apiRequest<{ unread: number; items: import('../types').WorkspaceNotification[] }>(`/workspaces/${encodeURIComponent(id)}/notifications`, { signal }),
+    enabled: Boolean(id),
+    retry: false,
+    refetchInterval: 15000,
+  });
+}
+
+export function readWorkspaceNotification(id: string, notificationId: string) {
+  return apiRequest(`/workspaces/${encodeURIComponent(id)}/notifications/${encodeURIComponent(notificationId)}/read`, { method: 'PATCH' });
+}
+
+export function readAllWorkspaceNotifications(id: string) {
+  return apiRequest(`/workspaces/${encodeURIComponent(id)}/notifications/read-all`, { method: 'PATCH' });
+}
+
+export function workspaceFinance(id: string) {
+  return queryOptions({
+    queryKey: [...workspaceKey, id, 'finance'],
+    queryFn: ({ signal }) => apiRequest<import('../types').WorkspaceFinance>(`/workspaces/${encodeURIComponent(id)}/finance`, { signal }),
+    enabled: Boolean(id),
+    retry: false,
+  });
+}
+
+export function workspaceAnalytics(id: string, days: number) {
+  return queryOptions({
+    queryKey: [...workspaceKey, id, 'analytics', days],
+    queryFn: ({ signal }) => apiRequest<import('../types').WorkspaceAnalytics>(`/workspaces/${encodeURIComponent(id)}/analytics?days=${days}`, { signal }),
+    enabled: Boolean(id),
+    retry: false,
+  });
+}
