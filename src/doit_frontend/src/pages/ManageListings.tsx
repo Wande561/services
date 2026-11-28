@@ -221,7 +221,7 @@ export default function ManageListings() {
         )}
         {query.data && query.data.length > 0 && <div className="listing-filters" role="group" aria-label="Filter listings">{([['all', 'All', query.data.length], ['published', 'Published', query.data.filter(item => item.isPublished).length], ['draft', 'Drafts', query.data.filter(item => !item.isPublished).length]] as const).map(([value, label, count]) => <button type="button" key={value} className={filter === value ? 'is-active' : ''} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label} <span>{count}</span></button>)}</div>}
         {query.data && query.data.length > 0 && !query.data.some(listing => filter === 'all' || listing.isPublished === (filter === 'published')) && <p className="polished-empty">No {filter} listings yet.</p>}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {query.data?.filter(listing => filter === 'all' || listing.isPublished === (filter === 'published')).map(listing => (
             <ServiceListingCard key={listing.id} listing={listing}>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-700 pt-3">

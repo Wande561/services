@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FormEvent } from 'react';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, Star } from 'lucide-react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import BookingSummary from '../components/BookingSummary';
 import HistoryCard from '../components/HistoryCard';
@@ -32,16 +32,10 @@ function ReviewForm({ bookingId, role }: { bookingId: string; role: AccountRole 
   }
 
   return (
-    <details className="mt-4 border-t border-gray-700 pt-3">
-      <summary className="cursor-pointer text-sm font-semibold text-orange-300">{role === 'provider' ? 'Rate the client' : 'Rate the provider'}</summary>
+    <details className="booking-rating mt-4 border-t border-gray-700 pt-3">
+      <summary className="booking-rating__button"><Star size={16} aria-hidden="true" />{role === 'provider' ? 'Rate the client' : 'Rate the provider'}</summary>
       <form onSubmit={submit} className="mt-3 max-w-lg space-y-3">
-        <label className="block text-sm font-medium">
-          Rating
-          <select name="rating" required defaultValue="" className="mt-1 block rounded-lg border border-gray-600 bg-gray-900 p-2">
-            <option value="" disabled>Choose a rating</option>
-            {[5, 4, 3, 2, 1].map(rating => <option key={rating} value={rating}>{rating} out of 5</option>)}
-          </select>
-        </label>
+        <fieldset className="booking-rating__stars"><legend className="text-sm font-medium">Your rating</legend><div>{[5, 4, 3, 2, 1].map(rating => <label key={rating}><input type="radio" name="rating" value={rating} required /><Star aria-hidden="true" /><span className="sr-only">{rating} out of 5 stars</span></label>)}</div></fieldset>
         <label className="block text-sm font-medium">
           {role === 'client' ? 'Public comment (optional)' : 'Comment (optional)'}
           <textarea name="comment" maxLength={1000} rows={3}
@@ -142,12 +136,8 @@ export default function Bookings() {
               {update.isError && update.variables?.id === booking.id &&
                 <p role="alert" className="mt-2 text-sm text-red-300">{update.error.message}</p>}
               <BookingPayment booking={booking} role={role} />
-              <BookingReliability booking={booking} role={role} />
+              {booking.status !== 'Completed' && <BookingReliability booking={booking} role={role} />}
               {booking.status === 'Completed' && <>
-                {(booking.review || booking.clientReview) && <details className="mt-4 border-t border-gray-700 pt-3 text-sm text-gray-300"><summary className="cursor-pointer font-semibold text-emerald-300">View reviews</summary>
-                  {booking.review && <div className="mt-3"><p className="font-medium text-orange-200">Client’s review of provider · {booking.review.rating} out of 5</p>{booking.review.comment && <p className="mt-1 whitespace-pre-wrap break-words">{booking.review.comment}</p>}</div>}
-                  {booking.clientReview && <div className="mt-3"><p className="font-medium text-orange-200">Provider’s review of client · {booking.clientReview.rating} out of 5</p>{booking.clientReview.comment && <p className="mt-1 whitespace-pre-wrap break-words">{booking.clientReview.comment}</p>}</div>}
-                </details>}
                 {(role === 'client' ? !booking.review : !booking.clientReview) && <ReviewForm bookingId={booking.id} role={role} />}
               </>}
             </article></HistoryCard>

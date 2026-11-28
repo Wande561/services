@@ -13,11 +13,11 @@ function notificationLabel(notification: AppNotification) {
   switch (notification.kind) {
     case 'BookingRequested': return { title: 'New booking request', icon: CalendarDays };
     case 'BookingStatusChanged':
-      return { title: notification.bookingStatus ? `Booking ${notification.bookingStatus.toLowerCase()}` : 'Booking updated', icon: CalendarDays };
+      return { title: notification.bookingStatus ? `Your booking is ${notification.bookingStatus.toLowerCase()}` : 'Your booking was updated', icon: CalendarDays };
     case 'MessageReceived': return { title: 'New message', icon: MessageSquare };
-    case 'ServiceCompletionConfirmation': return { title: 'The other party confirmed service completion', icon: CalendarDays };
-    case 'AppointmentReminder': return { title: 'Appointment coming up in the next 24 hours', icon: CalendarDays };
-    case 'ReviewReceived': return { title: 'New review', icon: Star };
+    case 'ServiceCompletionConfirmation': return { title: 'Service completion confirmed', icon: CalendarDays };
+    case 'AppointmentReminder': return { title: 'Your appointment is coming up', icon: CalendarDays };
+    case 'ReviewReceived': return { title: 'You received a review', icon: Star };
     case 'PaymentRecorded': return { title: 'Payment recorded', icon: Receipt };
     case 'PaymentVoided': return { title: 'Payment record voided', icon: Receipt };
   }
@@ -46,7 +46,7 @@ export default function Notifications() {
         <header className="workspace-page-header notifications-header">
           <div>
             <Link to={accountHome(currentUser?.profile?.role)} className="text-sm text-orange-300 hover:underline">← Dashboard</Link>
-            <p className="workspace-eyebrow">YOUR WORKSPACE / UPDATES</p><h1 className="mt-2 text-3xl font-bold">Notifications</h1><p className="mt-2 text-sm text-emerald-300">Your latest activity, all in one place.</p>
+            <p className="workspace-eyebrow">YOUR WORKSPACE / UPDATES</p><h1 className="mt-2 text-3xl font-bold">Notifications</h1><p className="mt-2 text-sm text-emerald-300">The latest on your bookings, quotes and messages.</p>
           </div>
           <button type="button" className="btn-secondary disabled:opacity-50"
             disabled={read.isPending || quoteReadAll.isPending || reliabilityReadAll.isPending || !(unread.data?.notifications || items.some(alert => !alert.read) || quoteNotices.data?.some(alert => !alert.readAt) || reliability.data?.alerts.some(alert => !alert.readAt))}

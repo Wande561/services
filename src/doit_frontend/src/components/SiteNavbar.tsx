@@ -57,7 +57,7 @@ export default function SiteNavbar() {
     { to: '/admin/reliability', label: 'Reliability review', icon: Scale },
     { to: '/settings', label: 'Account settings', icon: Settings },
   ] : [
-    ...(role ? [{ to: accountHome(role), label: 'Dashboard', icon: LayoutDashboard, end: true }] : [{ to: '/', label: 'Home', icon: Home, end: true }]),
+    ...(role ? [{ to: accountHome(role), label: 'Overview', icon: LayoutDashboard, end: true }] : [{ to: '/', label: 'Home', icon: Home, end: true }]),
     { to: '/services', label: 'Services', icon: Briefcase },
     ...(role ? [
       { to: '/quotes', label: 'Quotes', icon: FileText },

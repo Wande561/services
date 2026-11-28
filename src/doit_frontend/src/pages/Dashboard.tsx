@@ -39,7 +39,7 @@ export default function Dashboard() {
   const metrics = [
     { label: 'Total bookings', value: bookings.data ? String(bookings.data.length) : '—', hint: 'All booking statuses' },
     { label: 'Completed bookings', value: bookings.data ? String(bookings.data.filter(b => b.status === 'Completed').length) : '—', hint: 'Confirmed by both parties' },
-    { label: 'Total paid', value: bookings.data ? formatRand(totalRecordedCents(bookings.data)) : '—', hint: 'Payments and deposits recorded' },
+    { label: 'Recorded payments', value: bookings.data ? formatRand(totalRecordedCents(bookings.data)) : '—', hint: 'Deposits and earlier payment records' },
     { label: 'Completed service value', value: bookings.data ? formatRand(completedServiceValueCents(bookings.data)) : '—', hint: 'Full agreed value of completed services' },
   ];
   return <main className="dashboard-page client-overview min-h-screen px-5 py-10"><div className="mx-auto max-w-7xl"><DashboardWelcome role="client" />
