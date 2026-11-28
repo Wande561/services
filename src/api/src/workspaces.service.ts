@@ -4,6 +4,7 @@ import { createHash, randomBytes } from 'crypto';
 import { MailService } from './mail.service';
 import { PrismaService } from './prisma.service';
 import { requiredText } from './request-validation';
+import { formatListing, listingFields } from './services.service';
 import { effectivePermissions, hasPermission, parsePermissionOverrides, type WorkspacePermission } from './workspace-permissions';
 
 const memberSelect = {
@@ -42,6 +43,10 @@ function normalizeEmail(value: unknown) {
 
 function hashToken(token: string) {
   return createHash('sha256').update(token).digest('hex');
+}
+
+function slugify(value: string) {
+  return value.toLowerCase().normalize('NFKD').replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-').slice(0, 60) || 'workspace';
 }
 
 function sastDayStart(value = new Date()) {
@@ -92,16 +97,23 @@ export class WorkspacesService {
         role: true, workspaceId: true,
         workspace: {
           select: {
-            id: true, name: true, description: true, location: true, createdAt: true,
+            id: true, name: true, slug: true, description: true, publicDescription: true, location: true, isPublished: true, createdAt: true,
             _count: { select: { members: { where: { status: WorkspaceMemberStatus.Active } } } },
           },
         },
       },
     });
     return memberships.map(({ role, workspace }) => ({
-      id: workspace.id, name: workspace.name, description: workspace.description, location: workspace.location,
-      createdAt: workspace.createdAt, memberCount: workspace._count.members, role, isOwner: role === WorkspaceRole.Owner,
+      id: workspace.id, name: workspace.name, slug: workspace.slug, description: workspace.description, publicDescription: workspace.publicDescription, location: workspace.location,
+      isPublished: workspace.isPublished, createdAt: workspace.createdAt, memberCount: workspace._count.members, role, isOwner: role === WorkspaceRole.Owner,
     }));
+  }
+
+  private async uniqueSlug(base: string) {
+    let slug = base;
+    let suffix = 2;
+    while (await this.db.workspace.findUnique({ where: { slug }, select: { id: true } })) slug = `${base}-${suffix++}`;
+    return slug;
   }
 
   async create(owner: { id: string; email: string; name: string | null }, input: Record<string, unknown> | undefined) {
@@ -110,8 +122,9 @@ export class WorkspacesService {
     const location = optionalText(input?.location, 'a workspace location', 150);
     const attachExisting = input?.attachExisting !== false;
 
+    const slug = await this.uniqueSlug(slugify(name));
     const workspace = await this.db.$transaction(async tx => {
-      const created = await tx.workspace.create({ data: { ownerId: owner.id, name, description, location } });
+      const created = await tx.workspace.create({ data: { ownerId: owner.id, name, slug, description, location } });
       await tx.workspaceMember.create({
         data: {
           workspaceId: created.id, userId: owner.id, email: owner.email, name: owner.name,
@@ -162,7 +175,7 @@ export class WorkspacesService {
     ]);
 
     return {
-      workspace: { id: workspace.id, name: workspace.name, description: workspace.description, location: workspace.location, createdAt: workspace.createdAt, ownerId: workspace.ownerId },
+      workspace: { id: workspace.id, name: workspace.name, slug: workspace.slug, description: workspace.description, publicDescription: workspace.publicDescription, location: workspace.location, isPublished: workspace.isPublished, logoKey: workspace.logoKey, createdAt: workspace.createdAt, ownerId: workspace.ownerId },
       access: { role: member.role, permissions: this.permissions(member), memberId: member.id, userId: member.userId, name: member.name, email: member.email },
       metrics: { todayBookings, pendingRequests, upcomingBookings, activeMembers, completedThisMonth, openTasks },
       upcoming,
@@ -172,16 +185,79 @@ export class WorkspacesService {
     };
   }
 
+  async publicProfile(workspaceId: string, userId: string) {
+    const workspace = await this.db.workspace.findUnique({
+      where: { id: workspaceId },
+      select: {
+        id: true, name: true, slug: true, description: true, publicDescription: true, location: true,
+        logoKey: true, isPublished: true, createdAt: true,
+        owner: { select: { name: true, profile: { select: { businessName: true, verificationTier: true } } } },
+      },
+    });
+    if (!workspace) throw new NotFoundException('Workspace not found');
+    const viewerMember = await this.db.workspaceMember.findFirst({ where: { workspaceId, userId, status: WorkspaceMemberStatus.Active }, select: { role: true } });
+    if (!workspace.isPublished && !viewerMember) throw new NotFoundException('Workspace not found');
+    const [listings, team, reviewSummary, reviewItems, completedBookings] = await Promise.all([
+      this.db.serviceListing.findMany({ where: { workspaceId, isPublished: true }, orderBy: { createdAt: 'desc' }, select: listingFields }),
+      this.db.workspaceMember.findMany({ where: { workspaceId, status: WorkspaceMemberStatus.Active }, orderBy: [{ role: 'asc' }, { createdAt: 'asc' }], select: { name: true, role: true } }),
+      this.db.review.aggregate({ where: { booking: { workspaceId } }, _avg: { rating: true }, _count: { _all: true } }),
+      this.db.review.findMany({ where: { booking: { workspaceId } }, orderBy: { createdAt: 'desc' }, take: 6, select: { rating: true, comment: true, createdAt: true, booking: { select: { client: { select: { user: { select: { name: true } } } } } } } }),
+      this.db.booking.count({ where: { workspaceId, status: 'Completed' } }),
+    ]);
+    const formatted = listings.map(formatListing);
+    const ids = listings.map(listing => listing.id);
+    if (ids.length) {
+      const ratings = await this.db.$queryRaw<{ listingId: string; averageRating: number; reviewCount: bigint }[]>`
+        SELECT b."listingId" AS "listingId", AVG(r."rating")::float AS "averageRating", COUNT(r."id") AS "reviewCount"
+        FROM "Review" r INNER JOIN "Booking" b ON b."id" = r."bookingId"
+        WHERE b."listingId" IN (${Prisma.join(ids)}) GROUP BY b."listingId"
+      `;
+      const byId = new Map(ratings.map(row => [row.listingId, row]));
+      for (const listing of formatted) {
+        const rating = byId.get(listing.id);
+        (listing as typeof listing & { averageRating: number | null }).averageRating = rating?.averageRating ?? null;
+        listing.reviewCount = rating ? Number(rating.reviewCount) : 0;
+      }
+    }
+    return {
+      workspace: {
+        id: workspace.id, name: workspace.name, slug: workspace.slug, description: workspace.description,
+        publicDescription: workspace.publicDescription, location: workspace.location, logoKey: workspace.logoKey,
+        isPublished: workspace.isPublished, createdAt: workspace.createdAt,
+        ownerName: workspace.owner.profile?.businessName || workspace.owner.name || 'Provider',
+        verificationTier: workspace.owner.profile?.verificationTier ?? 'Basic',
+      },
+      listings: formatted,
+      team: team.map(member => ({ name: member.name, role: member.role })),
+      reviews: {
+        averageRating: reviewSummary._avg.rating ?? null,
+        count: reviewSummary._count._all,
+        items: reviewItems.map(review => ({
+          rating: review.rating, comment: review.comment, createdAt: review.createdAt,
+          clientName: review.booking.client.user.name || 'Client',
+        })),
+      },
+      stats: { completedBookings, activeMembers: team.length, listingCount: formatted.length },
+      viewerRole: viewerMember?.role ?? null,
+    };
+  }
+
   async update(workspaceId: string, userId: string, input: Record<string, unknown> | undefined) {
     const { workspace } = await this.access(workspaceId, userId, 'workspace.manage');
     const data: Prisma.WorkspaceUpdateInput = {};
     if (input?.name !== undefined) data.name = requiredText(input.name, 'a workspace name', 120);
     if (input?.description !== undefined) data.description = optionalText(input.description, 'a workspace description', 500);
+    if (input?.publicDescription !== undefined) data.publicDescription = optionalText(input.publicDescription, 'a public description', 3000);
     if (input?.location !== undefined) data.location = optionalText(input.location, 'a workspace location', 150);
+    if (input?.isPublished !== undefined) {
+      if (typeof input.isPublished !== 'boolean') throw new BadRequestException('Choose a valid publishing option');
+      data.isPublished = input.isPublished;
+      if (input.isPublished) data.publishedAt = new Date();
+    }
     if (!Object.keys(data).length) throw new BadRequestException('Choose something to update');
     const updated = await this.db.workspace.update({ where: { id: workspace.id }, data });
     await this.activity(this.db, workspaceId, userId, 'workspace.updated', 'Workspace details were updated');
-    return { id: updated.id, name: updated.name, description: updated.description, location: updated.location };
+    return { id: updated.id, name: updated.name, slug: updated.slug, description: updated.description, publicDescription: updated.publicDescription, location: updated.location, isPublished: updated.isPublished };
   }
 
   async members(workspaceId: string, userId: string) {

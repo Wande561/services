@@ -8,17 +8,19 @@ import {
 import { useAuth } from '../contexts/AppContext';
 import BookingNotes from '../components/BookingNotes';
 import WorkspaceAnalytics from '../components/WorkspaceAnalytics';
+import WorkspaceCalendar from '../components/WorkspaceCalendar';
 import WorkspaceFinance from '../components/WorkspaceFinance';
 import WorkspaceMessages from '../components/WorkspaceMessages';
 import WorkspaceNotifications from '../components/WorkspaceNotifications';
 import WorkspaceTasks from '../components/WorkspaceTasks';
+import WorkspacePublicSettings from '../components/WorkspacePublicSettings';
 import type { WorkspaceBooking, WorkspaceMember, WorkspaceRole, WorkspaceSummary } from '../types';
 import {
   acceptWorkspaceInvitation, assignWorkspaceBooking, createWorkspace, deactivateWorkspaceMember,
   inviteWorkspaceMember, myWorkspaces, updateWorkspaceMember, workspaceBookings, workspaceKey, workspaceSummary,
 } from '../utils/workspaces';
 
-type WorkspaceTab = 'overview' | 'team' | 'bookings' | 'tasks' | 'messages' | 'finance' | 'analytics';
+type WorkspaceTab = 'overview' | 'team' | 'services' | 'bookings' | 'calendar' | 'tasks' | 'messages' | 'finance' | 'analytics';
 
 const roles: WorkspaceRole[] = ['Manager', 'Staff', 'Receptionist', 'Finance'];
 const roleHelp: Record<WorkspaceRole, string> = {
@@ -86,7 +88,7 @@ function Metric({ label, value, icon: Icon }: { label: string; value: number; ic
   return <article className="workspace-metric"><span>{label}</span><Icon size={17} aria-hidden="true" /><strong>{value}</strong></article>;
 }
 
-function Overview({ summary, canTeamView }: { summary: WorkspaceSummary; canTeamView: boolean }) {
+function Overview({ summary, canTeamView, canManage }: { summary: WorkspaceSummary; canTeamView: boolean; canManage: boolean }) {
   return <div className="workspace-overview">
     <div className="workspace-metrics">
       <Metric label="Today's bookings" value={summary.metrics.todayBookings} icon={CalendarDays} />
@@ -96,6 +98,7 @@ function Overview({ summary, canTeamView }: { summary: WorkspaceSummary; canTeam
       <Metric label="Completed this month" value={summary.metrics.completedThisMonth} icon={CheckCircle2} />
       <Metric label="Open tasks" value={summary.metrics.openTasks} icon={ListChecks} />
     </div>
+    <WorkspacePublicSettings summary={summary} canManage={canManage} />
     <div className="workspace-columns">
       <section className="workspace-card">
         <div className="workspace-card__head"><div><p className="workspace-kicker">NEXT UP</p><h2>Upcoming appointments</h2></div><Link to={`/workspace?workspace=${summary.workspace.id}&tab=bookings`}>All bookings <ArrowUpRight size={15} /></Link></div>
@@ -250,7 +253,9 @@ export default function Workspace() {
   const tabs: { key: WorkspaceTab; label: string }[] = summary.data ? [
     { key: 'overview', label: 'Overview' },
     ...(can('team.view') ? [{ key: 'team' as const, label: 'Team' }] : []),
+    ...(can('services.manage') ? [{ key: 'services' as const, label: 'Services' }] : []),
     { key: 'bookings', label: 'Bookings' },
+    ...(can('bookings.view') ? [{ key: 'calendar' as const, label: 'Calendar' }] : []),
     ...(can('tasks.view') ? [{ key: 'tasks' as const, label: 'Tasks' }] : []),
     ...(can('chat.view') ? [{ key: 'messages' as const, label: 'Messages' }] : []),
     ...(can('finance.view') ? [{ key: 'finance' as const, label: 'Finance' }] : []),
@@ -274,9 +279,11 @@ export default function Workspace() {
     </nav>
     {summary.isPending && <p className="workspace-empty" role="status">Loading workspace…</p>}
     {summary.isError && <p className="workspace-error" role="alert">{summary.error.message}</p>}
-    {summary.data && visibleTab === 'overview' && <Overview summary={summary.data} canTeamView={can('team.view')} />}
+    {summary.data && visibleTab === 'overview' && <Overview summary={summary.data} canTeamView={can('team.view')} canManage={can('workspace.manage')} />}
     {summary.data && visibleTab === 'team' && <TeamPanel summary={summary.data} canManage={can('team.manage')} isOwner={!!isOwner} onRefresh={refresh} />}
+    {summary.data && visibleTab === 'services' && <section className="workspace-card workspace-services"><div className="workspace-card__head"><div><p className="workspace-kicker">THIS WORKSPACE</p><h2>Services</h2><p>All listings currently attached to this business.</p></div><Link to={`/provider-dashboard/listings?workspace=${selectedId}`} className="workspace-secondary">Manage services <ArrowUpRight size={15} /></Link></div>{!summary.data.listings.length && <p className="workspace-empty">No services attached. Create one from Manage services.</p>}<div className="workspace-table">{summary.data.listings.map(listing => <div key={listing.id} className="workspace-table__row"><span><strong>{listing.title}</strong><small>{listing.isPublished ? 'Published' : 'Draft'}</small></span><Link className="workspace-link" to={`/services/${encodeURIComponent(listing.id)}`}>Open <ArrowUpRight size={14} /></Link></div>)}</div></section>}
     {summary.data && visibleTab === 'bookings' && <BookingsPanel summary={summary.data} canAssign={can('bookings.assign')} canAddNotes={can('bookings.notes')} />}
+    {summary.data && visibleTab === 'calendar' && <WorkspaceCalendar workspaceId={selectedId} />}
     {summary.data && visibleTab === 'tasks' && <WorkspaceTasks workspaceId={selectedId} summary={summary.data} canSeeAll={can('tasks.view.all')} canManage={can('tasks.manage')} />}
     {summary.data && visibleTab === 'messages' && <WorkspaceMessages workspaceId={selectedId} summary={summary.data} canPost={can('chat.post')} canManageAnnouncements={can('announcements.manage')} memberId={summary.data.access.memberId} />}
     {summary.data && visibleTab === 'finance' && <WorkspaceFinance workspaceId={selectedId} />}

@@ -248,3 +248,63 @@
 @media (max-width: 640px) { .workspace-task-form { grid-template-columns: 1fr; } .workspace-chat__form { grid-template-columns: 1fr; } .workspace-analytics__head { align-items: flex-start; flex-direction: column; } .workspace-bars { height: 150px; } .workspace-bar small { font-size: 7px; } }
 .workspace-overview .workspace-metrics { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .workspace-chat__message.is-mine { border-color: #7fa98c; background: #294841; }
+
+/* Public workspace profile */
+.workspace-public { min-height: 100vh; padding: clamp(22px, 4vw, 46px) clamp(14px, 3vw, 32px) 70px; background: radial-gradient(circle at 12% 0%, #456b572e, transparent 400px), #1d3037; color: #edf7ef; }
+.workspace-public__shell { max-width: 1100px; margin: 0 auto; }
+.workspace-public__back { display: inline-flex; align-items: center; gap: 6px; color: #9fd3ae; font-size: 11px; font-weight: 800; }
+.workspace-public__hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-top: 20px; padding-bottom: 25px; border-bottom: 1px solid #4d6860; }
+.workspace-public__brand { display: flex; align-items: center; gap: 17px; }
+.workspace-public__avatar { display: grid; flex: none; place-items: center; width: 78px; height: 78px; border: 1px solid #8bb99a70; border-radius: 20px; background: #4f7959; color: #f3fff4; font-family: 'Alegreya', Georgia, serif; font-size: 38px; }
+.workspace-public__hero h1 { margin-top: 5px; color: #f5fbf3; font-family: 'Alegreya', Georgia, serif; font-size: clamp(2.6rem, 5vw, 4rem); font-weight: 400; line-height: .95; letter-spacing: -.02em; }
+.workspace-public__hero p { display: flex; align-items: center; gap: 5px; margin-top: 8px; color: #a9c9b4; font-size: 12px; }
+.workspace-public__badges { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px; }
+.workspace-public__badges > span { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border: 1px solid #6f9a7c66; border-radius: 999px; color: #c6edcf; font-size: 9px; font-weight: 800; }
+.workspace-public__draft { border-color: #e8d48a66 !important; color: #f0dfa3 !important; }
+.workspace-public__about { max-width: 780px; margin-top: 22px; color: #c2d8c8; font-size: 14px; line-height: 1.75; white-space: pre-wrap; }
+.workspace-public__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 25px; }
+.workspace-public__stats > div { display: grid; gap: 3px; padding: 14px 15px; border: 1px solid #4d6860; border-radius: 13px; background: #263d41; }
+.workspace-public__stats strong { color: #f2faf2; font-size: 24px; line-height: 1; }
+.workspace-public__stats span { color: #a9c9b4; font-size: 10px; }
+.workspace-public__section { margin-top: 30px; }
+.workspace-public__head { display: flex; align-items: end; justify-content: space-between; gap: 12px; }
+.workspace-public__head h2 { margin-top: 4px; color: #f3faf2; font-family: 'Alegreya', Georgia, serif; font-size: clamp(1.8rem, 3vw, 2.4rem); font-weight: 400; line-height: 1; }
+.workspace-public__head > span { color: #9fbea9; font-size: 10px; font-weight: 800; }
+.workspace-public__listings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; margin-top: 18px; }
+.workspace-public__rating { display: flex; align-items: center; gap: 6px; margin-top: 13px; color: #f0dfa3; font-size: 18px; font-weight: 700; }
+.workspace-public__rating small { color: #a9c9b4; font-size: 10px; font-weight: 400; }
+.workspace-public__reviews { display: grid; gap: 9px; margin-top: 13px; }
+.workspace-public__reviews article { padding: 11px 12px; border: 1px solid #4a665b; border-radius: 11px; background: #223b3e; }
+.workspace-public__reviews article > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.workspace-public__reviews strong { color: #edf7ef; font-size: 11px; }
+.workspace-public__reviews small { color: #91af9c; font-size: 9px; }
+.workspace-public__reviews p { margin-top: 4px; color: #c6ddcc; font-size: 11px; line-height: 1.55; white-space: pre-wrap; }
+.workspace-public__stars { color: #f0dfa3; font-size: 12px; }
+.workspace-public__note { display: flex; align-items: flex-start; gap: 7px; margin-top: 30px; padding-top: 16px; border-top: 1px solid #3f5a4e; color: #91af9c; font-size: 10px; line-height: 1.5; }
+
+/* Public settings */
+.workspace-public-settings { margin-top: 18px; }
+.workspace-public-settings__state { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 13px; }
+.workspace-public-settings__state > span { padding: 4px 9px; border-radius: 999px; background: #e8d48a1f; color: #f0dfa3; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.workspace-public-settings__state > span.is-live { background: #a8dfb71f; color: #c5f2cf; }
+.workspace-public-settings__description { display: grid; gap: 5px; margin-top: 13px; color: #c9e1ce; font-size: 10px; font-weight: 800; }
+.workspace-public-settings__description textarea { min-height: 86px; padding: 9px 11px; border: 1px solid #5d7b6c; border-radius: 10px; background: #1d3437; color: #edf7ef; font-size: 12px; resize: vertical; }
+.workspace-public-settings__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+/* Calendar */
+.workspace-calendar { margin-top: 22px; }
+.workspace-calendar__nav { display: flex; gap: 5px; }
+.workspace-calendar__nav button { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid #5d7b6c; border-radius: 8px; color: #c8e8d0; }
+.workspace-calendar__nav button:hover { background: #2b4848; }
+.workspace-calendar__weekdays, .workspace-calendar__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.workspace-calendar__weekdays { margin-top: 16px; }
+.workspace-calendar__weekdays span { padding: 4px; color: #9fbea9; font-size: 9px; font-weight: 800; text-align: center; text-transform: uppercase; }
+.workspace-calendar__day { min-height: 74px; padding: 6px; border: 1px solid #435e52; border-radius: 8px; background: #223a3d; }
+.workspace-calendar__day.is-outside { opacity: .35; }
+.workspace-calendar__day > span { color: #c9e1ce; font-size: 10px; font-weight: 800; }
+.workspace-calendar__booking { display: block; overflow: hidden; margin-top: 3px; padding: 3px 4px; border-radius: 4px; background: #a8dfb71c; color: #c9f2d2; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-calendar__booking.status-pending { background: #e8d48a1f; color: #f0dfa3; }
+.workspace-calendar__booking.status-completed { background: #9ad8aa1a; color: #bfecc8; }
+.workspace-calendar__more { display: block; margin-top: 2px; color: #9fbea9; font-size: 7px; }
+@media (max-width: 980px) { .workspace-public__listings { grid-template-columns: repeat(2,minmax(0,1fr)); } .workspace-public__stats { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 640px) { .workspace-public__hero { align-items: flex-start; flex-direction: column; } .workspace-public__badges { justify-content: flex-start; } .workspace-public__listings { grid-template-columns: 1fr; } .workspace-calendar__day { min-height: 58px; padding: 4px; } .workspace-calendar__booking { font-size: 0; } .workspace-calendar__booking::before { content: '•'; font-size: 10px; } }

@@ -21,6 +21,7 @@ export const listingFields = {
   isPublished: true,
   photos: { select: { id: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
   provider: { select: { businessName: true, verificationTier: true } },
+  workspace: { select: { id: true, name: true, slug: true, isPublished: true, logoKey: true } },
   _count: { select: { bookings: { where: { review: { isNot: null } } } } },
 } satisfies Prisma.ServiceListingSelect;
 const newestFirst = [{ createdAt: 'desc' }, { id: 'desc' }] satisfies Prisma.ServiceListingOrderByWithRelationInput[];
@@ -28,8 +29,14 @@ const newestFirst = [{ createdAt: 'desc' }, { id: 'desc' }] satisfies Prisma.Ser
 type ListingInput = Record<string, unknown> | undefined;
 type ListingRecord = Prisma.ServiceListingGetPayload<{ select: typeof listingFields }>;
 
-export function formatListing({ provider, _count, ...listing }: ListingRecord) {
-  return { ...listing, providerName: provider.businessName ?? 'Provider', verificationTier: provider.verificationTier, reviewCount: _count.bookings };
+export function formatListing({ provider, workspace, _count, ...listing }: ListingRecord) {
+  return {
+    ...listing,
+    providerName: provider.businessName ?? 'Provider',
+    verificationTier: provider.verificationTier,
+    reviewCount: _count.bookings,
+    workspace: workspace ? { id: workspace.id, name: workspace.name, slug: workspace.slug, isPublished: workspace.isPublished, logoKey: workspace.logoKey } : null,
+  };
 }
 
 function isEnumValue<T extends string>(values: Record<string, T>, value: unknown): value is T {
