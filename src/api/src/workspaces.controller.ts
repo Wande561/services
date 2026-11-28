@@ -41,6 +41,13 @@ export class WorkspacesController {
     return this.workspaces.acceptInvitation(account, body?.token);
   }
 
+  @Get(':id/public')
+  @Header('Cache-Control', 'private, max-age=30')
+  async publicProfile(@Req() req: Request, @Param('id') id: string) {
+    const account = await this.auth.currentUser(this.token(req));
+    return this.workspaces.publicProfile(id, account.id);
+  }
+
   @Get(':id')
   @Header('Cache-Control', 'private, no-store')
   async summary(@Req() req: Request, @Param('id') id: string) {

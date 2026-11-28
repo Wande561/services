@@ -44,7 +44,7 @@ export function createWorkspace(input: { name: string; description?: string; loc
   return apiRequest<WorkspaceSummary>('/workspaces', { method: 'POST', data: input });
 }
 
-export function updateWorkspace(id: string, input: { name?: string; description?: string; location?: string }) {
+export function updateWorkspace(id: string, input: { name?: string; description?: string; publicDescription?: string; location?: string; isPublished?: boolean }) {
   return apiRequest(`/workspaces/${encodeURIComponent(id)}`, { method: 'PATCH', data: input });
 }
 
@@ -164,6 +164,15 @@ export function workspaceAnalytics(id: string, days: number) {
   return queryOptions({
     queryKey: [...workspaceKey, id, 'analytics', days],
     queryFn: ({ signal }) => apiRequest<import('../types').WorkspaceAnalytics>(`/workspaces/${encodeURIComponent(id)}/analytics?days=${days}`, { signal }),
+    enabled: Boolean(id),
+    retry: false,
+  });
+}
+
+export function publicWorkspace(id: string) {
+  return queryOptions({
+    queryKey: [...workspaceKey, id, 'public'],
+    queryFn: ({ signal }) => apiRequest<import('../types').PublicWorkspace>(`/workspaces/${encodeURIComponent(id)}/public`, { signal }),
     enabled: Boolean(id),
     retry: false,
   });

@@ -172,9 +172,13 @@ model Workspace {
   ownerId     String
   owner       User     @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   name        String
+  slug        String?  @unique
   description String?
+  publicDescription String?
   location    String?
   logoKey     String?
+  isPublished Boolean  @default(false)
+  publishedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   members     WorkspaceMember[]

@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useState, type ChangeEvent, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import ServiceListingCard from '../components/ServiceListingCard';
 import { useAuth } from '../contexts/AppContext';
 import { ServiceCategoryEnum, type AccountProfile, type PriceUnit, type ServiceListing, type ServiceListingInput } from '../types';
 import { catalogKey, priceUnits, providerListings, saveListing, setListingPublication } from '../utils/serviceListings';
 import { categoryLabel } from '../utils/serviceUtils';
+import { myWorkspaces } from '../utils/workspaces';
+import type { WorkspaceMembership } from '../types';
 import { parseRandCents } from '../utils/money';
 
 const inputClass = 'mt-1 w-full rounded-lg border border-gray-600 bg-gray-900 p-3 text-white';
@@ -14,13 +16,15 @@ const inputClass = 'mt-1 w-full rounded-lg border border-gray-600 bg-gray-900 p-
 interface ListingFormProps {
   listing?: ServiceListing;
   profile: AccountProfile;
+  workspaces: WorkspaceMembership[];
+  defaultWorkspaceId?: string;
   busy: boolean;
   error?: string;
   onSave: (input: ServiceListingInput) => void;
   onCancel: () => void;
 }
 
-function ListingForm({ listing, profile, busy, error, onSave, onCancel }: ListingFormProps) {
+function ListingForm({ listing, profile, workspaces, defaultWorkspaceId, busy, error, onSave, onCancel }: ListingFormProps) {
   const [validationError, setValidationError] = useState('');
   const [keepPhotoIds, setKeepPhotoIds] = useState(() => listing?.photos.map(photo => photo.id) ?? []);
   const [photos, setPhotos] = useState<File[]>([]);
@@ -78,6 +82,7 @@ function ListingForm({ listing, profile, busy, error, onSave, onCancel }: Listin
       priceCents,
       maxPriceCents,
       priceUnit: text('priceUnit') as PriceUnit,
+      workspaceId: listing ? undefined : (text('workspaceId') || undefined),
     });
   }
 
@@ -85,6 +90,7 @@ function ListingForm({ listing, profile, busy, error, onSave, onCancel }: Listin
     <form onSubmit={submit} className="mb-8 rounded-xl border border-gray-700 bg-gray-800 p-5 sm:p-6">
       <h2 className="mb-4 text-xl font-semibold">{listing ? 'Edit listing' : 'New listing'}</h2>
       <fieldset disabled={busy || reading} className="grid gap-4 sm:grid-cols-2">
+        {!listing && workspaces.length > 0 && <label className="text-sm font-medium">Workspace<select name="workspaceId" className={inputClass} defaultValue={defaultWorkspaceId || workspaces[0]?.id}>{workspaces.map(workspace => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></label>}
         <label className="text-sm font-medium">
           Title
           <input name="title" className={inputClass} required maxLength={120} defaultValue={listing?.title} autoFocus />
@@ -147,6 +153,12 @@ export default function ManageListings() {
   const [editing, setEditing] = useState<'new' | ServiceListing | null>(null);
   const [notice, setNotice] = useState('');
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all');
+  const [searchParams] = useSearchParams();
+  const workspaceFilter = searchParams.get('workspace') ?? '';
+  const workspaces = useQuery({ ...myWorkspaces(), enabled: Boolean(currentUser) });
+  const ownedWorkspaces = (workspaces.data ?? []).filter(workspace => workspace.isOwner);
+  const visibleListings = (query.data ?? []).filter(listing => !workspaceFilter || listing.workspaceId === workspaceFilter);
+  const workspaceName = workspaces.data?.find(workspace => workspace.id === workspaceFilter)?.name;
 
   async function refreshListings() {
     await Promise.all([
@@ -201,6 +213,8 @@ export default function ManageListings() {
             key={editing === 'new' ? 'new' : editing.id}
             listing={editing === 'new' ? undefined : editing}
             profile={currentUser.profile}
+            workspaces={ownedWorkspaces}
+            defaultWorkspaceId={workspaceFilter || undefined}
             busy={save.isPending}
             error={save.error?.message}
             onSave={input => save.mutate({ input, id: editing === 'new' ? undefined : editing.id })}
@@ -219,10 +233,11 @@ export default function ManageListings() {
         {query.data?.length === 0 && !editing && (
           <p className="rounded-xl border border-gray-700 bg-gray-800 p-6 text-gray-300">You have no listings yet. Select New listing, save your service details, then select Publish so clients can find you.</p>
         )}
-        {query.data && query.data.length > 0 && <div className="listing-filters" role="group" aria-label="Filter listings">{([['all', 'All', query.data.length], ['published', 'Published', query.data.filter(item => item.isPublished).length], ['draft', 'Drafts', query.data.filter(item => !item.isPublished).length]] as const).map(([value, label, count]) => <button type="button" key={value} className={filter === value ? 'is-active' : ''} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label} <span>{count}</span></button>)}</div>}
-        {query.data && query.data.length > 0 && !query.data.some(listing => filter === 'all' || listing.isPublished === (filter === 'published')) && <p className="polished-empty">No {filter} listings yet.</p>}
+        {workspaceFilter && <p className="mb-4 rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-sm text-gray-300">Showing services for <strong className="text-white">{workspaceName || 'this workspace'}</strong>. <Link to="/provider-dashboard/listings" className="text-emerald-300 underline">Show all</Link></p>}
+        {visibleListings.length > 0 && <div className="listing-filters" role="group" aria-label="Filter listings">{([['all', 'All', visibleListings.length], ['published', 'Published', visibleListings.filter(item => item.isPublished).length], ['draft', 'Drafts', visibleListings.filter(item => !item.isPublished).length]] as const).map(([value, label, count]) => <button type="button" key={value} className={filter === value ? 'is-active' : ''} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label} <span>{count}</span></button>)}</div>}
+        {visibleListings.length > 0 && !visibleListings.some(listing => filter === 'all' || listing.isPublished === (filter === 'published')) && <p className="polished-empty">No {filter} listings yet.</p>}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {query.data?.filter(listing => filter === 'all' || listing.isPublished === (filter === 'published')).map(listing => (
+          {visibleListings.filter(listing => filter === 'all' || listing.isPublished === (filter === 'published')).map(listing => (
             <ServiceListingCard key={listing.id} listing={listing}>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-700 pt-3">
                 <span className={listing.isPublished ? 'text-sm text-green-300' : 'text-sm text-gray-300'}>

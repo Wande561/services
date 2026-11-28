@@ -53,6 +53,7 @@ export interface ServiceListingInput {
   priceCents: number;
   maxPriceCents: number | null;
   priceUnit: PriceUnit;
+  workspaceId?: string;
   keepPhotoIds?: string[];
   newPhotos?: string[];
 }
@@ -61,6 +62,7 @@ export interface ServiceListing extends ServiceListingInput {
   id: string;
   providerId: string;
   workspaceId?: string | null;
+  workspace?: { id: string; name: string; slug: string | null; isPublished: boolean; logoKey: string | null } | null;
   photos: { id: string }[];
   verificationTier: VerificationTier;
   providerName: string;
@@ -165,8 +167,11 @@ export type WorkspaceMemberStatus = 'Invited' | 'Active' | 'Inactive';
 export interface WorkspaceMembership {
   id: string;
   name: string;
+  slug: string | null;
   description: string | null;
+  publicDescription: string | null;
   location: string | null;
+  isPublished: boolean;
   createdAt: string;
   memberCount: number;
   role: WorkspaceRole;
@@ -216,7 +221,7 @@ export interface WorkspaceBooking {
 }
 
 export interface WorkspaceSummary {
-  workspace: { id: string; name: string; description: string | null; location: string | null; createdAt: string; ownerId: string };
+  workspace: { id: string; name: string; slug: string | null; description: string | null; publicDescription: string | null; location: string | null; isPublished: boolean; logoKey: string | null; createdAt: string; ownerId: string };
   access: { role: WorkspaceRole; permissions: string[]; memberId: string; userId: string | null; name: string | null; email: string };
   metrics: { todayBookings: number; pendingRequests: number; upcomingBookings: number; activeMembers: number; completedThisMonth: number; openTasks: number };
   upcoming: WorkspaceBooking[];
@@ -310,4 +315,21 @@ export interface WorkspaceAnalytics {
     averageRating: number | null; completionRate: number | null;
   }[];
   note: string;
+}
+
+export interface PublicWorkspace {
+  workspace: {
+    id: string; name: string; slug: string | null; description: string | null; publicDescription: string | null;
+    location: string | null; logoKey: string | null; isPublished: boolean; createdAt: string;
+    ownerName: string; verificationTier: VerificationTier;
+  };
+  listings: ServiceListing[];
+  team: { name: string | null; role: WorkspaceRole }[];
+  reviews: {
+    averageRating: number | null;
+    count: number;
+    items: { rating: number; comment: string | null; createdAt: string; clientName: string }[];
+  };
+  stats: { completedBookings: number; activeMembers: number; listingCount: number };
+  viewerRole: WorkspaceRole | null;
 }
