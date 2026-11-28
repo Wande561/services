@@ -10,6 +10,7 @@ const maxDatabaseInteger = 2_147_483_647;
 export const listingFields = {
   id: true,
   providerId: true,
+  workspaceId: true,
   title: true,
   description: true,
   category: true,
@@ -188,10 +189,20 @@ export class ServicesService {
 
   async create(providerId: string, input: ListingInput) {
     const data = listingData(input);
+    const requestedWorkspaceId = typeof input?.workspaceId === 'string' && input.workspaceId.trim() ? input.workspaceId.trim() : null;
+    let workspaceId: string | null = null;
+    if (requestedWorkspaceId) {
+      const workspace = await this.db.workspace.findFirst({ where: { id: requestedWorkspaceId, ownerId: providerId }, select: { id: true } });
+      if (!workspace) throw new BadRequestException('Choose one of your workspaces');
+      workspaceId = workspace.id;
+    } else {
+      const workspace = await this.db.workspace.findFirst({ where: { ownerId: providerId }, orderBy: { createdAt: 'asc' }, select: { id: true } });
+      workspaceId = workspace?.id ?? null;
+    }
     const photos = this.photoInput(input, []);
     const stored = await this.storePhotos(photos.add);
     try {
-      const record = await this.db.serviceListing.create({ data: { ...data, description: data.description ?? '', providerId, photos: { create: stored } }, select: listingFields });
+      const record = await this.db.serviceListing.create({ data: { ...data, description: data.description ?? '', providerId, workspaceId, photos: { create: stored } }, select: listingFields });
       return formatListing(record);
     } catch (error) {
       await this.storage.deleteMany(stored.map(photo => photo.storageKey)).catch(() => undefined);

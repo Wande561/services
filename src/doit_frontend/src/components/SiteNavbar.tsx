@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, ArrowRightLeft, ArrowUpRight, Bell, Briefcase, CalendarDays, ChevronDown, CircleHelp, ClipboardList, FileText, Home, LayoutDashboard, LogOut, Menu, Scale, MessageSquare, Settings, ShieldCheck, Store, LifeBuoy, X } from 'lucide-react';
+import { ArrowRight, ArrowRightLeft, ArrowUpRight, Bell, Briefcase, Building2, CalendarDays, ChevronDown, CircleHelp, ClipboardList, FileText, Home, LayoutDashboard, LogOut, Menu, Scale, MessageSquare, Settings, ShieldCheck, Store, LifeBuoy, X } from 'lucide-react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AppContext';
 import type { OnboardingInput } from '../types';
@@ -9,6 +9,7 @@ import { inboxUnread } from '../utils/inbox';
 import { reliabilityUnread } from '../utils/reliability';
 import { quoteAlerts } from '../utils/quotes';
 import { tierLabel } from '../utils/verification';
+import { myWorkspaces } from '../utils/workspaces';
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300';
 function BrandName() {
@@ -26,6 +27,7 @@ export default function SiteNavbar() {
   const { data: unread } = useQuery(inboxUnread(role ? currentUser!.id : ''));
   const { data: quoteNotices } = useQuery(quoteAlerts(role ? currentUser!.id : ''));
   const { data: reliability } = useQuery(reliabilityUnread(role ? currentUser!.id : ''));
+  const { data: workspaces } = useQuery({ ...myWorkspaces(), enabled: Boolean(currentUser) });
   useEffect(() => { setOpen(false); }, [pathname]);
   useEffect(() => { if (!open) return; const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); }; document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key); }, [open]);
   useEffect(() => {
@@ -65,6 +67,7 @@ export default function SiteNavbar() {
       { to: '/bookings', label: 'Bookings', icon: ClipboardList },
       { to: '/messages', label: 'Messages', icon: MessageSquare, count: unread?.messages ?? 0 },
       { to: '/notifications', label: 'Notifications', icon: Bell, count: (unread?.notifications ?? 0) + (quoteNotices?.filter(alert => !alert.readAt).length ?? 0) + (reliability?.count ?? 0) },
+      ...(role === 'provider' || workspaces?.length ? [{ to: '/workspace', label: 'Business workspace', icon: Building2 }] : []),
       ...(role === 'provider' ? [{ to: '/provider-dashboard/listings', label: 'My listings', icon: Store }, { to: '/provider-dashboard/hours', label: 'Working hours', icon: CalendarDays }] : []),
       { to: '/reliability', label: 'Reliability & credits', icon: Scale },
       { to: '/complaints', label: 'Help & support', icon: LifeBuoy },
@@ -75,7 +78,7 @@ export default function SiteNavbar() {
   ];
   const providerNavigation = role === 'provider' && !adminMode;
   const providerGroups = [
-    { label: 'Workspace', paths: ['/provider-dashboard', '/bookings', '/quotes', '/messages', '/services'] },
+    { label: 'Workspace', paths: ['/provider-dashboard', '/workspace', '/bookings', '/quotes', '/messages', '/services'] },
     { label: 'Business', paths: ['/provider-dashboard/hours', '/reliability', '/provider-dashboard/listings'] },
     { label: 'Administration', paths: ['/admin'] },
   ];

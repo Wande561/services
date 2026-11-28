@@ -23,6 +23,7 @@ import Notifications from './pages/Notifications';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import ProviderDashboard from './pages/ProviderDashboard';
+import Workspace, { WorkspaceAccept } from './pages/Workspace';
 import ManageListings from './pages/ManageListings';
 import ListingReviews from './pages/ListingReviews';
 import Dashboard from './pages/Dashboard';
@@ -80,6 +81,8 @@ function AppRoutes() {
               <Route path="/bookings" element={<Bookings />} />
               <Route path="/quotes" element={<Quotes />} />
               <Route path="/notifications" element={<Notifications />} />
+              <Route path="/workspace" element={<Workspace />} />
+              <Route path="/workspace/accept" element={<WorkspaceAccept />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/complaints" element={<Complaints />} />

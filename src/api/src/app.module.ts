@@ -28,9 +28,10 @@ import { QuotesModule } from './quotes.module';
 import { MessagesModule } from './messages.module';
 import { NotificationsModule } from './notifications.module';
 import { ProvidersModule } from './providers.module';
+import { WorkspacesModule } from './workspaces.module';
 
 @Module({
-  imports: [DatabaseModule, ObjectStorageModule, BookingsModule, QuotesModule, MessagesModule, NotificationsModule, ProvidersModule, AuthModule, AiModule],
+  imports: [DatabaseModule, ObjectStorageModule, BookingsModule, QuotesModule, MessagesModule, NotificationsModule, ProvidersModule, AuthModule, AiModule, WorkspacesModule],
   controllers: [PresenceController, ReliabilityController, ReliabilityAdminController, DiscoveryController, ProvidersController, AdminController, ComplaintsController, VerificationController, QuotesController, AuthController, ServicesController, BookingsController, MessagesController, NotificationsController, ReviewsController],
   providers: [ReliabilityService, DiscoveryService, AdminService, VerificationService, ServicesService, ReviewsService, PaymentsService],
 })

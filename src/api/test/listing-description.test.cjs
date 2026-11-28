@@ -7,7 +7,7 @@ const result = { id: 'one', ...listing, description: '', maxPriceCents: null, is
 
 test('new listings can be created without a description', async () => {
   let data;
-  const service = new ServicesService({ serviceListing: { create: async args => { data = args.data; return result; } } });
+  const service = new ServicesService({ serviceListing: { create: async args => { data = args.data; return result; } }, workspace: { findFirst: async () => null } });
   await service.create('provider', listing);
   assert.equal(data.description, '');
 });

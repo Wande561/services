@@ -60,6 +60,7 @@ export interface ServiceListingInput {
 export interface ServiceListing extends ServiceListingInput {
   id: string;
   providerId: string;
+  workspaceId?: string | null;
   photos: { id: string }[];
   verificationTier: VerificationTier;
   providerName: string;
@@ -156,4 +157,70 @@ export interface AppNotification {
   bookingStatus: BookingStatus | null;
   createdAt: string;
   read: boolean;
+}
+
+export type WorkspaceRole = 'Owner' | 'Manager' | 'Staff' | 'Receptionist' | 'Finance';
+export type WorkspaceMemberStatus = 'Invited' | 'Active' | 'Inactive';
+
+export interface WorkspaceMembership {
+  id: string;
+  name: string;
+  description: string | null;
+  location: string | null;
+  createdAt: string;
+  memberCount: number;
+  role: WorkspaceRole;
+  isOwner: boolean;
+}
+
+export interface WorkspaceMember {
+  id: string;
+  workspaceId: string;
+  userId: string | null;
+  email: string;
+  name: string | null;
+  role: WorkspaceRole;
+  status: WorkspaceMemberStatus;
+  permissions: Record<string, boolean> | null;
+  workingHours: unknown;
+  inviteExpiresAt: string | null;
+  invitedAt: string;
+  joinedAt: string | null;
+  deactivatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  serviceIds: string[];
+  effectivePermissions: string[];
+}
+
+export interface WorkspaceAssignment {
+  id: string;
+  memberId: string;
+  assignedAt: string;
+  member: { id: string; name: string | null; email: string; role: WorkspaceRole };
+}
+
+export interface WorkspaceBooking {
+  id: string;
+  serviceTitle: string;
+  status: BookingStatus;
+  address: string;
+  notes: string | null;
+  priceCents: number | null;
+  createdAt: string;
+  updatedAt: string;
+  slot: { startsAt: string; endsAt: string };
+  client: { phone: string; user: { name: string | null } };
+  listing: { id: string; title: string };
+  workspaceAssignments: WorkspaceAssignment[];
+}
+
+export interface WorkspaceSummary {
+  workspace: { id: string; name: string; description: string | null; location: string | null; createdAt: string; ownerId: string };
+  access: { role: WorkspaceRole; permissions: string[] };
+  metrics: { todayBookings: number; pendingRequests: number; upcomingBookings: number; activeMembers: number; completedThisMonth: number };
+  upcoming: WorkspaceBooking[];
+  team: WorkspaceMember[];
+  activity: { id: string; kind: string; message: string; createdAt: string; actor: { name: string | null } | null }[];
+  listings: { id: string; title: string; isPublished: boolean }[];
 }

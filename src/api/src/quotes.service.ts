@@ -118,7 +118,7 @@ export class QuotesService {
   }
   async create(clientId: string, body: any) {
     const listingId = requiredText(body?.listingId, 'a service', 128);
-    const listing = await this.db.serviceListing.findFirst({ where: { id: listingId, isPublished: true }, select: { providerId: true } });
+    const listing = await this.db.serviceListing.findFirst({ where: { id: listingId, isPublished: true }, select: { providerId: true, workspaceId: true } });
     if (!listing) throw new NotFoundException('Service not found');
     if (listing.providerId === clientId) throw new BadRequestException('You cannot request a quote for your own service');
     const description = requiredText(body?.description, 'the work you need', 2000);
@@ -148,7 +148,7 @@ export class QuotesService {
         await assertCanStart(tx, clientId);
         await assertCanBook(tx, [listing.providerId]);
         if (referencePhotoId && !await tx.listingPhoto.findFirst({ where: { id: referencePhotoId, listingId, listing: { isPublished: true } }, select: { id: true } })) throw new BadRequestException('This listing photo is no longer available. Choose another or continue without one.');
-        const request = await tx.quoteRequest.create({ data: { clientId, providerId: listing.providerId, listingId, description, location, preferredAt, additionalInfo, photos: { create: requestPhotos } }, select: selection });
+        const request = await tx.quoteRequest.create({ data: { clientId, providerId: listing.providerId, workspaceId: listing.workspaceId, listingId, description, location, preferredAt, additionalInfo, photos: { create: requestPhotos } }, select: selection });
         await tx.quoteAlert.createMany({ data: [{ recipientId: listing.providerId, requestId: request.id, message: 'A client sent you a quote request.' }, { recipientId: clientId, requestId: request.id, message: 'Your quote request was sent.' }] });
         return request;
       });
@@ -213,7 +213,7 @@ export class QuotesService {
     if (overlap) throw new ConflictException('This appointment overlaps an existing booking. Please request a different time.');
     const slot = await tx.availabilitySlot.create({ data: { providerId: current.providerId, startsAt, endsAt, isOpen: false } });
     const booking = await tx.booking.create({ data: {
-      clientId: current.clientId, listingId: current.listingId, slotId: slot.id, quoteRequestId: current.id,
+      clientId: current.clientId, listingId: current.listingId, workspaceId: current.workspaceId, slotId: slot.id, quoteRequestId: current.id,
       serviceTitle: current.listing.title, address: current.location, notes: current.additionalInfo,
       status: 'Confirmed', priceCents: version.totalCents, maxPriceCents: null, priceUnit: 'PerProject',
     }, select: { id: true } });

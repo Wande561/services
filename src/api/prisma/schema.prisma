@@ -35,6 +35,10 @@ model User {
   reliabilityEntries ReliabilityEntry[]
   reliabilityAlerts ReliabilityAlert[]
   proposedReschedules BookingReschedule[] @relation("RescheduleProposer")
+  ownedWorkspaces Workspace[] @relation("WorkspaceOwner")
+  workspaceMemberships WorkspaceMember[]
+  workspaceAssignmentsMade WorkspaceBookingAssignment[] @relation("WorkspaceAssignmentActor")
+  workspaceActivities WorkspaceActivity[] @relation("WorkspaceActivityActor")
 }
 
 model PasswordResetToken {
@@ -145,6 +149,122 @@ model Profile {
   favoredBy ClientFavoriteProvider[]
 }
 
+enum WorkspaceRole {
+  Owner
+  Manager
+  Staff
+  Receptionist
+  Finance
+}
+
+enum WorkspaceMemberStatus {
+  Invited
+  Active
+  Inactive
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  location    String?
+  logoKey     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  members     WorkspaceMember[]
+  listings    ServiceListing[]
+  bookings    Booking[]
+  quoteRequests QuoteRequest[]
+  activities  WorkspaceActivity[]
+  assignments WorkspaceBookingAssignment[]
+
+  @@index([ownerId, createdAt])
+}
+
+model WorkspaceMember {
+  id              String                @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email           String
+  name            String?
+  role            WorkspaceRole         @default(Staff)
+  status          WorkspaceMemberStatus @default(Invited)
+  permissions     Json?
+  workingHours    Json?
+  inviteTokenHash String?               @unique
+  inviteExpiresAt DateTime?             @db.Timestamptz(3)
+  invitedAt       DateTime              @default(now())
+  joinedAt        DateTime?
+  deactivatedAt   DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  services        WorkspaceMemberService[]
+  timeOff         WorkspaceTimeOff[]
+  assignments     WorkspaceBookingAssignment[]
+
+  @@unique([workspaceId, email])
+  @@unique([workspaceId, userId])
+  @@index([workspaceId, status])
+  @@index([userId])
+}
+
+model WorkspaceMemberService {
+  memberId  String
+  member    WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   ServiceListing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@id([memberId, listingId])
+  @@index([listingId])
+}
+
+model WorkspaceTimeOff {
+  id        String          @id @default(cuid())
+  memberId  String
+  member    WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  startsAt  DateTime        @db.Timestamptz(3)
+  endsAt    DateTime        @db.Timestamptz(3)
+  reason    String?
+  createdAt DateTime        @default(now())
+
+  @@index([memberId, startsAt])
+}
+
+model WorkspaceBookingAssignment {
+  id           String          @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  bookingId    String
+  booking      Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  memberId     String
+  member       WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  assignedById String?
+  assignedBy   User?           @relation("WorkspaceAssignmentActor", fields: [assignedById], references: [id], onDelete: SetNull)
+  assignedAt   DateTime        @default(now())
+  unassignedAt DateTime?
+
+  @@index([workspaceId, bookingId])
+  @@index([memberId, unassignedAt])
+}
+
+model WorkspaceActivity {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actorId     String?
+  actor       User?     @relation("WorkspaceActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+  kind        String
+  message     String
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
+}
+
 enum PriceUnit {
   PerHour
   PerSession
@@ -156,6 +276,8 @@ model ServiceListing {
   id            String          @id @default(cuid())
   providerId    String
   provider      Profile         @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+  workspaceId   String?
+  workspace     Workspace?      @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   title         String
   description   String
   category      ServiceCategory
@@ -171,8 +293,10 @@ model ServiceListing {
   photos ListingPhoto[]
   favorites ClientFavoriteListing[]
   views ClientListingView[]
+  memberServices WorkspaceMemberService[]
 
   @@index([providerId, createdAt])
+  @@index([workspaceId, createdAt])
   @@index([isPublished, createdAt, id])
 }
 
@@ -240,6 +364,8 @@ model Booking {
   id           String           @id @default(cuid())
   listingId    String
   listing      ServiceListing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  workspaceId  String?
+  workspace    Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   slotId       String
   slot         AvailabilitySlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
   clientId     String
@@ -266,9 +392,11 @@ model Booking {
   reliabilityEntries ReliabilityEntry[]
   reliabilityAlerts ReliabilityAlert[]
   reschedules BookingReschedule[]
+  workspaceAssignments WorkspaceBookingAssignment[]
 
   @@index([clientId, createdAt])
   @@index([listingId])
+  @@index([workspaceId, createdAt])
   @@index([slotId, status])
 }
 
@@ -365,6 +493,8 @@ model QuoteRequest {
   client Profile @relation("QuoteClient", fields: [clientId], references: [userId], onDelete: Restrict)
   providerId String
   provider Profile @relation("QuoteProvider", fields: [providerId], references: [userId], onDelete: Restrict)
+  workspaceId String?
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   listingId String
   listing ServiceListing @relation(fields: [listingId], references: [id], onDelete: Restrict)
   description String
@@ -390,6 +520,7 @@ model QuoteRequest {
   booking Booking?
   @@index([providerId, createdAt])
   @@index([clientId, createdAt])
+  @@index([workspaceId, createdAt])
 }
 
 model QuotePhoto {
